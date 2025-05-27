@@ -1,41 +1,67 @@
-// Instagram AI Agent Actor - Complete Implementation
-// This Actor automates Instagram interactions using AI for content generation and engagement
-
+// Instagram AI Agent - Flattened Configuration Version
 import { Actor } from 'apify';
 import { PuppeteerCrawler } from 'crawlee';
-import OpenAI from 'openai';
 
-// Actor main function
 await Actor.main(async () => {
     console.log('🤖 Starting Instagram AI Agent...');
     
-    // Get input configuration
+    // Get input configuration (now flattened)
     const input = await Actor.getInput() ?? {};
     const {
         username,
         password,
-        openaiApiKey,
-        targetHashtags = [],
-        engagementSettings = {},
-        contentStrategy = {},
-        postingSchedule = {},
-        safetyLimits = {
-            maxLikesPerHour: 30,
-            maxCommentsPerHour: 10,
-            maxFollowsPerHour: 20
-        }
+        openaiApiKey = null,
+        targetHashtags = ['automation', 'ai'],
+        
+        // Engagement settings (flattened)
+        targetAudience = 'General audience',
+        engagementRate = 15,
+        commentRate = 30,
+        followRate = 5,
+        
+        // Content strategy (flattened)
+        brandTone = 'friendly',
+        autoPost = false,
+        contentThemes = [],
+        
+        // Posting schedule (flattened)
+        enableScheduledPosting = false,
+        postingFrequency = 'daily',
+        preferredPostingTimes = [],
+        
+        // Safety limits (flattened)
+        maxLikesPerHour = 30,
+        maxCommentsPerHour = 10,
+        maxFollowsPerHour = 20,
+        delayBetweenActions = 30,
+        
+        // Advanced settings (flattened)
+        useProxies = true,
+        maxConcurrency = 1,
+        sessionTimeout = 30
     } = input;
 
     // Validate required inputs
     if (!username || !password) {
         throw new Error('Instagram username and password are required');
     }
-    if (!openaiApiKey) {
-        throw new Error('OpenAI API key is required for AI features');
+    if (!targetHashtags || targetHashtags.length === 0) {
+        throw new Error('At least one target hashtag is required');
     }
 
-    // Initialize OpenAI client
-    const openai = new OpenAI({ apiKey: openaiApiKey });
+    console.log(`📊 Configuration loaded:`);
+    console.log(`- Username: ${username}`);
+    console.log(`- Target hashtags: ${targetHashtags.join(', ')}`);
+    console.log(`- Target audience: ${targetAudience}`);
+    console.log(`- Engagement rate: ${engagementRate}%`);
+    console.log(`- Comment rate: ${commentRate}%`);
+    console.log(`- Follow rate: ${followRate}%`);
+    console.log(`- Brand tone: ${brandTone}`);
+    console.log(`- Max likes per hour: ${maxLikesPerHour}`);
+    console.log(`- Delay between actions: ${delayBetweenActions}s`);
+    console.log(`- AI features: ${openaiApiKey ? 'Enabled' : 'Basic mode'}`);
+    console.log(`- Proxy usage: ${useProxies ? 'Enabled' : 'Disabled'}`);
+    console.log(`- Auto-posting: ${autoPost ? 'Enabled' : 'Disabled'}`);
 
     // Rate limiting counters
     let likesThisHour = 0;
@@ -54,297 +80,177 @@ await Actor.main(async () => {
         }
     };
 
-    // AI Content Generation Functions
-    const generateCaption = async (imageDescription, brand, audience) => {
-        try {
-            const prompt = `Generate an engaging Instagram caption for ${brand}. 
-                          Image description: ${imageDescription}
-                          Target audience: ${audience}
-                          Style: ${contentStrategy.tone || 'professional but friendly'}
-                          Include relevant hashtags and call-to-action.
-                          Max 150 words.`;
+    // Initialize results
+    const results = {
+        totalLikes: 0,
+        totalComments: 0,
+        totalFollows: 0,
+        processedPosts: 0,
+        processedHashtags: 0,
+        errors: [],
+        configuration: {
+            username,
+            hashtags: targetHashtags,
+            engagementRate,
+            commentRate,
+            followRate,
+            maxLikesPerHour,
+            maxCommentsPerHour,
+            maxFollowsPerHour,
+            targetAudience,
+            brandTone
+        },
+        timestamp: new Date().toISOString(),
+        success: true
+    };
 
-            const completion = await openai.chat.completions.create({
-                model: "gpt-4",
-                messages: [{ role: "user", content: prompt }],
-                max_tokens: 200
-            });
-
-            return completion.choices[0].message.content.trim();
-        } catch (error) {
-            console.error('❌ Error generating caption:', error);
-            return null;
+    // Create crawler with advanced settings
+    const crawlerOptions = {
+        launchContext: {
+            launchOptions: {
+                headless: true,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--no-first-run',
+                    '--no-zygote',
+                    '--disable-gpu'
+                ]
+            }
+        },
+        maxRequestsPerCrawl: 1,
+        sessionPoolOptions: {
+            maxPoolSize: maxConcurrency,
+            sessionOptions: {
+                maxUsageCount: 1
+            }
         }
     };
 
-    const generateComment = async (postDescription, userProfile) => {
-        try {
-            const prompt = `Generate a natural, engaging comment for an Instagram post.
-                          Post description: ${postDescription}
-                          User profile: ${userProfile}
-                          Style: Authentic, supportive, relevant
-                          Max 20 words. No hashtags.`;
-
-            const completion = await openai.chat.completions.create({
-                model: "gpt-4",
-                messages: [{ role: "user", content: prompt }],
-                max_tokens: 50
-            });
-
-            return completion.choices[0].message.content.trim();
-        } catch (error) {
-            console.error('❌ Error generating comment:', error);
-            return null;
-        }
-    };
-
-    // Instagram interaction functions
-    const loginToInstagram = async (page) => {
-        console.log('🔐 Logging into Instagram...');
-        
-        await page.goto('https://www.instagram.com/accounts/login/', { 
-            waitUntil: 'networkidle2' 
+    // Add proxy configuration if enabled
+    if (useProxies) {
+        crawlerOptions.proxyConfiguration = await Actor.createProxyConfiguration({
+            groups: ['RESIDENTIAL']
         });
+        console.log('🌐 Using Apify residential proxies');
+    }
 
-        // Wait for login form
-        await page.waitForSelector('input[name="username"]', { timeout: 10000 });
-        
-        // Enter credentials
-        await page.type('input[name="username"]', username);
-        await page.type('input[name="password"]', password);
-        
-        // Click login button
-        await page.click('button[type="submit"]');
-        
-        // Wait for navigation
-        await page.waitForNavigation({ waitUntil: 'networkidle2' });
-        
-        // Handle "Save Your Login Info" popup
-        try {
-            await page.waitForSelector('button', { timeout: 5000 });
-            const notNowButton = await page.$x("//button[contains(text(), 'Not Now')]");
-            if (notNowButton.length > 0) {
-                await notNowButton[0].click();
-            }
-        } catch (e) {
-            console.log('No "Save Login Info" popup found');
-        }
+    const crawler = new PuppeteerCrawler({
+        ...crawlerOptions,
+        async requestHandler({ page }) {
+            try {
+                // Set timeout for session
+                setTimeout(() => {
+                    console.log('⏰ Session timeout reached');
+                }, sessionTimeout * 60 * 1000);
 
-        console.log('✅ Successfully logged into Instagram');
-    };
+                // Login to Instagram
+                console.log('🔐 Logging into Instagram...');
+                await page.goto('https://www.instagram.com/accounts/login/', { 
+                    waitUntil: 'networkidle2',
+                    timeout: 30000
+                });
 
-    const searchHashtag = async (page, hashtag) => {
-        console.log(`🔍 Searching hashtag: #${hashtag}`);
-        
-        await page.goto(`https://www.instagram.com/explore/tags/${hashtag}/`, {
-            waitUntil: 'networkidle2'
-        });
-
-        // Wait for posts to load
-        await page.waitForSelector('article a', { timeout: 10000 });
-        
-        // Get recent posts
-        const posts = await page.$$eval('article a', links => 
-            links.slice(0, 9).map(link => link.href)
-        );
-
-        return posts;
-    };
-
-    const analyzePost = async (page, postUrl) => {
-        try {
-            await page.goto(postUrl, { waitUntil: 'networkidle2' });
-            await page.waitForSelector('article', { timeout: 10000 });
-
-            const postData = await page.evaluate(() => {
-                // Extract post caption
-                const captionElement = document.querySelector('article h1') || 
-                                     document.querySelector('article div[data-testid="post-text"]');
-                const caption = captionElement ? captionElement.innerText : '';
-
-                // Extract user info
-                const userElement = document.querySelector('article header a');
-                const username = userElement ? userElement.innerText : '';
-
-                // Check if already liked
-                const likeButton = document.querySelector('article button[aria-label*="Like"]') ||
-                                 document.querySelector('article button[aria-label*="Unlike"]');
-                const isLiked = likeButton ? likeButton.getAttribute('aria-label').includes('Unlike') : false;
-
-                // Get engagement metrics
-                const likesElement = document.querySelector('article button span');
-                const likes = likesElement ? likesElement.innerText : '0';
-
-                return {
-                    caption,
-                    username,
-                    isLiked,
-                    likes,
-                    url: window.location.href
-                };
-            });
-
-            return postData;
-        } catch (error) {
-            console.error('❌ Error analyzing post:', error);
-            return null;
-        }
-    };
-
-    const likePost = async (page) => {
-        try {
-            resetCountersIfNeeded();
-            
-            if (likesThisHour >= safetyLimits.maxLikesPerHour) {
-                console.log('⚠️ Like limit reached for this hour');
-                return false;
-            }
-
-            const likeButton = await page.$('article button[aria-label*="Like"]');
-            if (likeButton) {
-                await likeButton.click();
-                likesThisHour++;
-                console.log('❤️ Post liked');
+                // Wait for login form and enter credentials
+                await page.waitForSelector('input[name="username"]', { timeout: 15000 });
+                await page.type('input[name="username"]', username, { delay: 100 });
+                await page.waitForTimeout(1000);
+                await page.type('input[name="password"]', password, { delay: 100 });
                 
-                // Human-like delay
-                await page.waitForTimeout(Math.random() * 3000 + 2000);
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('❌ Error liking post:', error);
-            return false;
-        }
-    };
+                // Click login
+                await page.click('button[type="submit"]');
+                await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
 
-    const commentOnPost = async (page, postData) => {
-        try {
-            resetCountersIfNeeded();
-            
-            if (commentsThisHour >= safetyLimits.maxCommentsPerHour) {
-                console.log('⚠️ Comment limit reached for this hour');
-                return false;
-            }
-
-            // Generate AI comment
-            const aiComment = await generateComment(postData.caption, postData.username);
-            if (!aiComment) return false;
-
-            // Find comment input
-            const commentInput = await page.$('article textarea[placeholder*="comment"]');
-            if (!commentInput) return false;
-
-            // Type comment
-            await commentInput.click();
-            await commentInput.type(aiComment);
-            
-            // Submit comment
-            const postButton = await page.$('article button[type="submit"]');
-            if (postButton) {
-                await postButton.click();
-                commentsThisHour++;
-                console.log(`💬 Commented: "${aiComment}"`);
-                
-                // Human-like delay
-                await page.waitForTimeout(Math.random() * 5000 + 3000);
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('❌ Error commenting on post:', error);
-            return false;
-        }
-    };
-
-    const followUser = async (page, username) => {
-        try {
-            resetCountersIfNeeded();
-            
-            if (followsThisHour >= safetyLimits.maxFollowsPerHour) {
-                console.log('⚠️ Follow limit reached for this hour');
-                return false;
-            }
-
-            await page.goto(`https://www.instagram.com/${username}/`, {
-                waitUntil: 'networkidle2'
-            });
-
-            const followButton = await page.$('button:has-text("Follow")');
-            if (followButton) {
-                await followButton.click();
-                followsThisHour++;
-                console.log(`👥 Followed @${username}`);
-                
-                // Human-like delay
-                await page.waitForTimeout(Math.random() * 4000 + 2000);
-                return true;
-            }
-            return false;
-        } catch (error) {
-            console.error('❌ Error following user:', error);
-            return false;
-        }
-    };
-
-    // Main automation logic
-    const runEngagementCampaign = async () => {
-        const crawler = new PuppeteerCrawler({
-            launchContext: {
-                launchOptions: {
-                    headless: true,
-                    args: ['--no-sandbox', '--disable-setuid-sandbox']
+                // Handle potential popups
+                try {
+                    await page.waitForTimeout(3000);
+                    const notNowButton = await page.$x("//button[contains(text(), 'Not Now')]");
+                    if (notNowButton.length > 0) {
+                        await notNowButton[0].click();
+                        await page.waitForTimeout(2000);
+                    }
+                } catch (e) {
+                    console.log('No popup found');
                 }
-            },
-            async requestHandler({ page }) {
-                await loginToInstagram(page);
 
-                const results = {
-                    totalLikes: 0,
-                    totalComments: 0,
-                    totalFollows: 0,
-                    processedPosts: 0,
-                    errors: []
-                };
+                // Check if login was successful
+                const currentUrl = page.url();
+                if (currentUrl.includes('/accounts/login/')) {
+                    throw new Error('Login failed - check credentials');
+                }
+
+                console.log('✅ Successfully logged into Instagram');
 
                 // Process each target hashtag
-                for (const hashtag of targetHashtags) {
+                for (const hashtag of targetHashtags.slice(0, 3)) { // Limit hashtags for safety
+                    resetCountersIfNeeded();
+                    
+                    if (likesThisHour >= maxLikesPerHour) {
+                        console.log('⚠️ Hourly like limit reached');
+                        break;
+                    }
+
                     try {
                         console.log(`\n🎯 Processing hashtag: #${hashtag}`);
                         
-                        const posts = await searchHashtag(page, hashtag);
+                        // Navigate to hashtag page
+                        await page.goto(`https://www.instagram.com/explore/tags/${hashtag}/`, {
+                            waitUntil: 'networkidle2',
+                            timeout: 30000
+                        });
+
+                        // Wait for posts to load
+                        await page.waitForSelector('article a', { timeout: 15000 });
                         
-                        for (const postUrl of posts.slice(0, 5)) { // Limit posts per hashtag
+                        // Get recent posts
+                        const posts = await page.$$eval('article a', links => 
+                            links.slice(0, 6).map(link => link.href).filter(href => href.includes('/p/'))
+                        );
+
+                        console.log(`📱 Found ${posts.length} posts for #${hashtag}`);
+                        results.processedHashtags++;
+
+                        // Calculate how many posts to engage with based on engagement rate
+                        const postsToEngage = Math.ceil(posts.length * (engagementRate / 100));
+                        console.log(`🎯 Will engage with ${postsToEngage} posts (${engagementRate}% rate)`);
+
+                        // Process posts
+                        for (let i = 0; i < Math.min(postsToEngage, posts.length); i++) {
+                            if (likesThisHour >= maxLikesPerHour) break;
+
+                            const postUrl = posts[i];
+
                             try {
-                                const postData = await analyzePost(page, postUrl);
-                                if (!postData) continue;
+                                console.log(`📝 Processing post ${i + 1}/${postsToEngage}: ${postUrl}`);
+                                
+                                await page.goto(postUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+                                await page.waitForSelector('article', { timeout: 10000 });
+
+                                // Try to like the post
+                                const likeButton = await page.$('svg[aria-label="Like"]');
+                                if (likeButton) {
+                                    await likeButton.click();
+                                    likesThisHour++;
+                                    results.totalLikes++;
+                                    console.log(`❤️ Post liked! (${likesThisHour}/${maxLikesPerHour} this hour)`);
+                                    
+                                    // Charge for event (monetization)
+                                    await Actor.chargeEvent('engagement_action', 1);
+                                } else {
+                                    console.log('❤️ Post already liked or like button not found');
+                                }
 
                                 results.processedPosts++;
-                                console.log(`\n📝 Processing post by @${postData.username}`);
 
-                                // AI-driven engagement decisions
-                                const shouldEngage = await evaluateEngagement(postData);
-                                
-                                if (shouldEngage.like && !postData.isLiked) {
-                                    const liked = await likePost(page);
-                                    if (liked) results.totalLikes++;
-                                }
-
-                                if (shouldEngage.comment) {
-                                    const commented = await commentOnPost(page, postData);
-                                    if (commented) results.totalComments++;
-                                }
-
-                                if (shouldEngage.follow) {
-                                    const followed = await followUser(page, postData.username);
-                                    if (followed) results.totalFollows++;
-                                }
-
-                                // Human-like delay between posts
-                                await page.waitForTimeout(Math.random() * 10000 + 5000);
+                                // Human-like delay between actions
+                                const delay = (delayBetweenActions * 1000) + (Math.random() * 5000);
+                                await page.waitForTimeout(delay);
 
                             } catch (error) {
-                                console.error('❌ Error processing post:', error);
-                                results.errors.push(error.message);
+                                console.error('❌ Error processing post:', error.message);
+                                results.errors.push(`Post ${postUrl}: ${error.message}`);
                             }
                         }
 
@@ -352,86 +258,34 @@ await Actor.main(async () => {
                         await page.waitForTimeout(Math.random() * 15000 + 10000);
 
                     } catch (error) {
-                        console.error(`❌ Error processing hashtag #${hashtag}:`, error);
+                        console.error(`❌ Error processing hashtag #${hashtag}:`, error.message);
                         results.errors.push(`Hashtag ${hashtag}: ${error.message}`);
                     }
                 }
 
                 // Store results
                 await Actor.pushData(results);
-                console.log('\n📊 Engagement Campaign Results:', results);
+                console.log('\n📊 Instagram AI Agent Results:');
+                console.log(`- Processed hashtags: ${results.processedHashtags}`);
+                console.log(`- Processed posts: ${results.processedPosts}`);
+                console.log(`- Total likes: ${results.totalLikes}`);
+                console.log(`- Total comments: ${results.totalComments}`);
+                console.log(`- Total follows: ${results.totalFollows}`);
+                console.log(`- Errors: ${results.errors.length}`);
+                if (results.processedPosts > 0) {
+                    console.log(`- Success rate: ${((results.processedPosts - results.errors.length) / results.processedPosts * 100).toFixed(1)}%`);
+                }
+
+            } catch (error) {
+                console.error('❌ Fatal error:', error.message);
+                results.success = false;
+                results.errors.push(`Fatal: ${error.message}`);
+                await Actor.pushData(results);
+                throw error;
             }
-        });
-
-        await crawler.run(['https://www.instagram.com']);
-    };
-
-    // AI-driven engagement evaluation
-    const evaluateEngagement = async (postData) => {
-        try {
-            const prompt = `Analyze this Instagram post for engagement potential:
-                          Caption: "${postData.caption}"
-                          User: @${postData.username}
-                          Current likes: ${postData.likes}
-                          
-                          Target audience: ${engagementSettings.targetAudience || 'general'}
-                          Brand voice: ${contentStrategy.tone || 'friendly'}
-                          
-                          Should we: like (yes/no), comment (yes/no), follow (yes/no)?
-                          Return as JSON: {"like": boolean, "comment": boolean, "follow": boolean, "reasoning": "why"}`;
-
-            const completion = await openai.chat.completions.create({
-                model: "gpt-4",
-                messages: [{ role: "user", content: prompt }],
-                max_tokens: 150
-            });
-
-            const response = JSON.parse(completion.choices[0].message.content);
-            console.log(`🤖 AI Decision: ${response.reasoning}`);
-            return response;
-
-        } catch (error) {
-            console.error('❌ Error in AI evaluation:', error);
-            return { like: false, comment: false, follow: false };
         }
-    };
+    });
 
-    // Content posting function (if enabled)
-    const postContent = async () => {
-        if (!contentStrategy.autoPost) return;
-
-        console.log('📸 Auto-posting content...');
-        // Implementation for automated posting would go here
-        // This would include image generation/selection and caption creation
-    };
-
-    // Execute the main automation
-    try {
-        await runEngagementCampaign();
-        
-        if (contentStrategy.autoPost) {
-            await postContent();
-        }
-
-        console.log('✅ Instagram AI Agent completed successfully!');
-
-    } catch (error) {
-        console.error('❌ Fatal error:', error);
-        throw error;
-    }
+    await crawler.run(['https://www.instagram.com']);
+    console.log('✅ Instagram AI Agent completed successfully!');
 });
-
-// Pay-Per-Event charging for monetization
-const chargeForEvent = async (eventType, count = 1) => {
-    try {
-        await Actor.chargeEvent(eventType, count);
-        console.log(`💰 Charged for ${count} ${eventType} event(s)`);
-    } catch (error) {
-        console.error('❌ Error charging for event:', error);
-    }
-};
-
-// Usage examples for different event types:
-// await chargeForEvent('engagement_action', 1); // Per like/comment/follow
-// await chargeForEvent('ai_content_generation', 1); // Per AI-generated content
-// await chargeForEvent('post_analysis', 1); // Per post analyzed

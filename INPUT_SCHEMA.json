@@ -8,8 +8,7 @@
       "title": "Instagram Username",
       "type": "string",
       "description": "Your Instagram username (without @)",
-      "editor": "textfield",
-      "example": "your_username"
+      "editor": "textfield"
     },
     "password": {
       "title": "Instagram Password", 
@@ -33,184 +32,129 @@
       "prefill": ["digitalmarketing", "socialmedia", "entrepreneur"],
       "maxItems": 10
     },
-    "engagementSettings": {
-      "title": "Engagement Settings",
-      "type": "object",
-      "description": "Configure AI engagement behavior",
-      "editor": "json",
-      "prefill": {
-        "targetAudience": "Small business owners interested in digital marketing",
-        "engagementRate": 15,
-        "commentRate": 30,
-        "followRate": 5
-      },
-      "properties": {
-        "targetAudience": {
-          "title": "Target Audience",
-          "type": "string",
-          "description": "Describe your target audience for better AI decisions"
-        },
-        "engagementRate": {
-          "title": "Engagement Rate (%)",
-          "type": "number",
-          "description": "Percentage of discovered posts to engage with",
-          "minimum": 1,
-          "maximum": 50,
-          "default": 15
-        },
-        "commentRate": {
-          "title": "Comment Rate (%)",
-          "type": "number", 
-          "description": "Percentage of liked posts to also comment on",
-          "minimum": 0,
-          "maximum": 100,
-          "default": 30
-        },
-        "followRate": {
-          "title": "Follow Rate (%)",
-          "type": "number",
-          "description": "Percentage of engaged posts to follow the user",
-          "minimum": 0,
-          "maximum": 20,
-          "default": 5
-        }
-      }
+    "targetAudience": {
+      "title": "Target Audience",
+      "type": "string",
+      "description": "Describe your target audience for better AI decisions",
+      "default": "Small business owners interested in digital marketing"
     },
-    "contentStrategy": {
-      "title": "Content Strategy",
-      "type": "object",
-      "description": "AI content generation settings",
-      "editor": "json",
-      "prefill": {
-        "tone": "friendly",
-        "autoPost": false,
-        "contentThemes": ["motivation", "business tips", "industry insights"]
-      },
-      "properties": {
-        "tone": {
-          "title": "Brand Voice/Tone",
-          "type": "string",
-          "description": "Tone for AI-generated content",
-          "enum": ["professional", "casual", "friendly", "authoritative", "creative", "humorous"],
-          "default": "friendly"
-        },
-        "autoPost": {
-          "title": "Enable Auto-Posting",
-          "type": "boolean",
-          "description": "Enable AI-generated content posting",
-          "default": false
-        },
-        "contentThemes": {
-          "title": "Content Themes",
-          "type": "array",
-          "description": "Topics for AI content generation",
-          "editor": "stringList"
-        }
-      }
+    "engagementRate": {
+      "title": "Engagement Rate (%)",
+      "type": "number",
+      "description": "Percentage of discovered posts to engage with",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 15
     },
-    "postingSchedule": {
-      "title": "Posting Schedule",
-      "type": "object",
-      "description": "Configure automated posting times",
-      "editor": "json",
-      "prefill": {
-        "enabled": false,
-        "frequency": "daily",
-        "preferredTimes": ["09:00", "15:00", "20:00"]
-      },
-      "properties": {
-        "enabled": {
-          "title": "Enable Scheduled Posting",
-          "type": "boolean",
-          "default": false
-        },
-        "frequency": {
-          "title": "Posting Frequency",
-          "type": "string",
-          "enum": ["daily", "every_other_day", "weekly", "custom"],
-          "default": "daily"
-        },
-        "preferredTimes": {
-          "title": "Preferred Posting Times (24h format)",
-          "type": "array",
-          "editor": "stringList"
-        }
-      }
+    "commentRate": {
+      "title": "Comment Rate (%)",
+      "type": "number", 
+      "description": "Percentage of liked posts to also comment on",
+      "minimum": 0,
+      "maximum": 100,
+      "default": 30
     },
-    "safetyLimits": {
-      "title": "Safety & Rate Limits",
-      "type": "object",
-      "description": "Configure safety limits to avoid Instagram restrictions",
-      "editor": "json",
-      "prefill": {
-        "maxLikesPerHour": 30,
-        "maxCommentsPerHour": 10,
-        "maxFollowsPerHour": 20,
-        "delayBetweenActions": 30
-      },
-      "properties": {
-        "maxLikesPerHour": {
-          "title": "Max Likes per Hour",
-          "type": "number",
-          "minimum": 1,
-          "maximum": 100,
-          "default": 30
-        },
-        "maxCommentsPerHour": {
-          "title": "Max Comments per Hour", 
-          "type": "number",
-          "minimum": 1,
-          "maximum": 50,
-          "default": 10
-        },
-        "maxFollowsPerHour": {
-          "title": "Max Follows per Hour",
-          "type": "number",
-          "minimum": 1,
-          "maximum": 50,
-          "default": 20
-        },
-        "delayBetweenActions": {
-          "title": "Delay Between Actions (seconds)",
-          "type": "number",
-          "minimum": 1,
-          "maximum": 300,
-          "default": 30
-        }
-      }
+    "followRate": {
+      "title": "Follow Rate (%)",
+      "type": "number",
+      "description": "Percentage of engaged posts to follow the user",
+      "minimum": 0,
+      "maximum": 20,
+      "default": 5
     },
-    "advancedSettings": {
-      "title": "Advanced Settings",
-      "type": "object",
-      "description": "Advanced configuration options",
-      "editor": "json",
-      "prefill": {
-        "useProxies": true,
-        "maxConcurrency": 1,
-        "sessionTimeout": 30
-      },
-      "properties": {
-        "useProxies": {
-          "title": "Use Apify Proxies",
-          "type": "boolean",
-          "description": "Use residential proxies for better security",
-          "default": true
-        },
-        "maxConcurrency": {
-          "title": "Max Concurrency",
-          "type": "number",
-          "minimum": 1,
-          "maximum": 5,
-          "default": 1
-        },
-        "sessionTimeout": {
-          "title": "Session Timeout (minutes)",
-          "type": "number",
-          "minimum": 5,
-          "maximum": 120,
-          "default": 30
-        }
-      }
+    "brandTone": {
+      "title": "Brand Voice/Tone",
+      "type": "string",
+      "description": "Tone for AI-generated content",
+      "enum": ["professional", "casual", "friendly", "authoritative", "creative", "humorous"],
+      "default": "friendly"
+    },
+    "autoPost": {
+      "title": "Enable Auto-Posting",
+      "type": "boolean",
+      "description": "Enable AI-generated content posting",
+      "default": false
+    },
+    "contentThemes": {
+      "title": "Content Themes",
+      "type": "array",
+      "description": "Topics for AI content generation",
+      "editor": "stringList",
+      "prefill": ["motivation", "business tips", "industry insights"]
+    },
+    "enableScheduledPosting": {
+      "title": "Enable Scheduled Posting",
+      "type": "boolean",
+      "description": "Enable automated posting at scheduled times",
+      "default": false
+    },
+    "postingFrequency": {
+      "title": "Posting Frequency",
+      "type": "string",
+      "description": "How often to post content automatically",
+      "enum": ["daily", "every_other_day", "weekly", "custom"],
+      "default": "daily"
+    },
+    "preferredPostingTimes": {
+      "title": "Preferred Posting Times",
+      "type": "array",
+      "description": "Preferred posting times in 24h format (e.g., 09:00, 15:00, 20:00)",
+      "editor": "stringList",
+      "prefill": ["09:00", "15:00", "20:00"]
+    },
+    "maxLikesPerHour": {
+      "title": "Max Likes per Hour",
+      "type": "number",
+      "description": "Maximum likes per hour to avoid Instagram restrictions",
+      "minimum": 1,
+      "maximum": 100,
+      "default": 30
+    },
+    "maxCommentsPerHour": {
+      "title": "Max Comments per Hour", 
+      "type": "number",
+      "description": "Maximum comments per hour to avoid Instagram restrictions",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 10
+    },
+    "maxFollowsPerHour": {
+      "title": "Max Follows per Hour",
+      "type": "number",
+      "description": "Maximum follows per hour to avoid Instagram restrictions",
+      "minimum": 1,
+      "maximum": 50,
+      "default": 20
+    },
+    "delayBetweenActions": {
+      "title": "Delay Between Actions (seconds)",
+      "type": "number",
+      "description": "Delay between actions to appear more human-like",
+      "minimum": 1,
+      "maximum": 300,
+      "default": 30
+    },
+    "useProxies": {
+      "title": "Use Apify Proxies",
+      "type": "boolean",
+      "description": "Use residential proxies for better security",
+      "default": true
+    },
+    "maxConcurrency": {
+      "title": "Max Concurrency",
+      "type": "number",
+      "description": "Maximum number of concurrent operations",
+      "minimum": 1,
+      "maximum": 5,
+      "default": 1
+    },
+    "sessionTimeout": {
+      "title": "Session Timeout (minutes)",
+      "type": "number",
+      "description": "Maximum session duration in minutes",
+      "minimum": 5,
+      "maximum": 120,
+      "default": 30
     }
   },
   "required": ["username", "password", "targetHashtags"]
