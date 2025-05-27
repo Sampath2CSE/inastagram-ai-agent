@@ -36,12 +36,14 @@
       "title": "Target Audience",
       "type": "string",
       "description": "Describe your target audience for better AI decisions",
+      "editor": "textfield",
       "default": "Small business owners interested in digital marketing"
     },
     "engagementRate": {
       "title": "Engagement Rate (%)",
       "type": "number",
       "description": "Percentage of discovered posts to engage with",
+      "editor": "number",
       "minimum": 1,
       "maximum": 50,
       "default": 15
@@ -50,6 +52,7 @@
       "title": "Comment Rate (%)",
       "type": "number", 
       "description": "Percentage of liked posts to also comment on",
+      "editor": "number",
       "minimum": 0,
       "maximum": 100,
       "default": 30
@@ -58,6 +61,7 @@
       "title": "Follow Rate (%)",
       "type": "number",
       "description": "Percentage of engaged posts to follow the user",
+      "editor": "number",
       "minimum": 0,
       "maximum": 20,
       "default": 5
@@ -66,6 +70,7 @@
       "title": "Brand Voice/Tone",
       "type": "string",
       "description": "Tone for AI-generated content",
+      "editor": "select",
       "enum": ["professional", "casual", "friendly", "authoritative", "creative", "humorous"],
       "default": "friendly"
     },
@@ -73,6 +78,7 @@
       "title": "Enable Auto-Posting",
       "type": "boolean",
       "description": "Enable AI-generated content posting",
+      "editor": "checkbox",
       "default": false
     },
     "contentThemes": {
@@ -86,12 +92,14 @@
       "title": "Enable Scheduled Posting",
       "type": "boolean",
       "description": "Enable automated posting at scheduled times",
+      "editor": "checkbox",
       "default": false
     },
     "postingFrequency": {
       "title": "Posting Frequency",
       "type": "string",
       "description": "How often to post content automatically",
+      "editor": "select",
       "enum": ["daily", "every_other_day", "weekly", "custom"],
       "default": "daily"
     },
@@ -106,6 +114,7 @@
       "title": "Max Likes per Hour",
       "type": "number",
       "description": "Maximum likes per hour to avoid Instagram restrictions",
+      "editor": "number",
       "minimum": 1,
       "maximum": 100,
       "default": 30
@@ -114,6 +123,7 @@
       "title": "Max Comments per Hour", 
       "type": "number",
       "description": "Maximum comments per hour to avoid Instagram restrictions",
+      "editor": "number",
       "minimum": 1,
       "maximum": 50,
       "default": 10
@@ -122,6 +132,7 @@
       "title": "Max Follows per Hour",
       "type": "number",
       "description": "Maximum follows per hour to avoid Instagram restrictions",
+      "editor": "number",
       "minimum": 1,
       "maximum": 50,
       "default": 20
@@ -130,6 +141,7 @@
       "title": "Delay Between Actions (seconds)",
       "type": "number",
       "description": "Delay between actions to appear more human-like",
+      "editor": "number",
       "minimum": 1,
       "maximum": 300,
       "default": 30
@@ -138,12 +150,14 @@
       "title": "Use Apify Proxies",
       "type": "boolean",
       "description": "Use residential proxies for better security",
+      "editor": "checkbox",
       "default": true
     },
     "maxConcurrency": {
       "title": "Max Concurrency",
       "type": "number",
       "description": "Maximum number of concurrent operations",
+      "editor": "number",
       "minimum": 1,
       "maximum": 5,
       "default": 1
@@ -152,6 +166,7 @@
       "title": "Session Timeout (minutes)",
       "type": "number",
       "description": "Maximum session duration in minutes",
+      "editor": "number",
       "minimum": 5,
       "maximum": 120,
       "default": 30
