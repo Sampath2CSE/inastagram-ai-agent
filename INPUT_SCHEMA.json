@@ -1,6 +1,6 @@
 {
   "title": "Instagram AI Agent Configuration",
-  "description": "Configure your AI-powered Instagram automation agent for optimal engagement and content strategy",
+  "description": "Configure your AI-powered Instagram automation agent",
   "type": "object",
   "schemaVersion": 1,
   "properties": {
@@ -20,48 +20,43 @@
     "openaiApiKey": {
       "title": "OpenAI API Key (Optional)",
       "type": "string", 
-      "description": "Your OpenAI API key for AI content generation (leave empty for basic automation)",
+      "description": "Optional: For AI features in future updates",
       "editor": "textfield",
       "isSecret": true
     },
     "targetHashtags": {
       "title": "Target Hashtags",
       "type": "array",
-      "description": "Hashtags to monitor and engage with (without #)",
-      "editor": "stringList",
-      "prefill": ["digitalmarketing", "socialmedia", "entrepreneur"],
-      "maxItems": 10
+      "description": "Hashtags to monitor (without #)",
+      "editor": "stringList"
     },
     "targetAudience": {
       "title": "Target Audience",
       "type": "string",
-      "description": "Describe your target audience for better AI decisions",
+      "description": "Describe your target audience",
       "editor": "textfield",
-      "default": "Small business owners interested in digital marketing"
+      "default": "Small business owners"
     },
     "engagementRate": {
       "title": "Engagement Rate (%)",
-      "type": "number",
-      "description": "Percentage of discovered posts to engage with",
-      "editor": "number",
+      "type": "integer",
+      "description": "Percentage of posts to engage with (1-50)",
       "minimum": 1,
       "maximum": 50,
       "default": 15
     },
     "commentRate": {
       "title": "Comment Rate (%)",
-      "type": "number", 
-      "description": "Percentage of liked posts to also comment on",
-      "editor": "number",
+      "type": "integer", 
+      "description": "Percentage of liked posts to comment on (0-100)",
       "minimum": 0,
       "maximum": 100,
       "default": 30
     },
     "followRate": {
       "title": "Follow Rate (%)",
-      "type": "number",
-      "description": "Percentage of engaged posts to follow the user",
-      "editor": "number",
+      "type": "integer",
+      "description": "Percentage of posts to follow user (0-20)",
       "minimum": 0,
       "maximum": 20,
       "default": 5
@@ -69,79 +64,50 @@
     "brandTone": {
       "title": "Brand Voice/Tone",
       "type": "string",
-      "description": "Tone for AI-generated content",
-      "editor": "select",
+      "description": "Tone for AI content",
       "enum": ["professional", "casual", "friendly", "authoritative", "creative", "humorous"],
       "default": "friendly"
     },
     "autoPost": {
       "title": "Enable Auto-Posting",
       "type": "boolean",
-      "description": "Enable AI-generated content posting",
-      "editor": "checkbox",
+      "description": "Enable AI content posting",
       "default": false
     },
     "contentThemes": {
       "title": "Content Themes",
       "type": "array",
-      "description": "Topics for AI content generation",
-      "editor": "stringList",
-      "prefill": ["motivation", "business tips", "industry insights"]
-    },
-    "enableScheduledPosting": {
-      "title": "Enable Scheduled Posting",
-      "type": "boolean",
-      "description": "Enable automated posting at scheduled times",
-      "editor": "checkbox",
-      "default": false
-    },
-    "postingFrequency": {
-      "title": "Posting Frequency",
-      "type": "string",
-      "description": "How often to post content automatically",
-      "editor": "select",
-      "enum": ["daily", "every_other_day", "weekly", "custom"],
-      "default": "daily"
-    },
-    "preferredPostingTimes": {
-      "title": "Preferred Posting Times",
-      "type": "array",
-      "description": "Preferred posting times in 24h format (e.g., 09:00, 15:00, 20:00)",
-      "editor": "stringList",
-      "prefill": ["09:00", "15:00", "20:00"]
+      "description": "Topics for AI content",
+      "editor": "stringList"
     },
     "maxLikesPerHour": {
       "title": "Max Likes per Hour",
-      "type": "number",
-      "description": "Maximum likes per hour to avoid Instagram restrictions",
-      "editor": "number",
+      "type": "integer",
+      "description": "Maximum likes per hour (1-100)",
       "minimum": 1,
       "maximum": 100,
       "default": 30
     },
     "maxCommentsPerHour": {
       "title": "Max Comments per Hour", 
-      "type": "number",
-      "description": "Maximum comments per hour to avoid Instagram restrictions",
-      "editor": "number",
+      "type": "integer",
+      "description": "Maximum comments per hour (1-50)",
       "minimum": 1,
       "maximum": 50,
       "default": 10
     },
     "maxFollowsPerHour": {
       "title": "Max Follows per Hour",
-      "type": "number",
-      "description": "Maximum follows per hour to avoid Instagram restrictions",
-      "editor": "number",
+      "type": "integer",
+      "description": "Maximum follows per hour (1-50)",
       "minimum": 1,
       "maximum": 50,
       "default": 20
     },
     "delayBetweenActions": {
       "title": "Delay Between Actions (seconds)",
-      "type": "number",
-      "description": "Delay between actions to appear more human-like",
-      "editor": "number",
+      "type": "integer",
+      "description": "Delay between actions (1-300)",
       "minimum": 1,
       "maximum": 300,
       "default": 30
@@ -149,24 +115,13 @@
     "useProxies": {
       "title": "Use Apify Proxies",
       "type": "boolean",
-      "description": "Use residential proxies for better security",
-      "editor": "checkbox",
+      "description": "Use residential proxies for security",
       "default": true
-    },
-    "maxConcurrency": {
-      "title": "Max Concurrency",
-      "type": "number",
-      "description": "Maximum number of concurrent operations",
-      "editor": "number",
-      "minimum": 1,
-      "maximum": 5,
-      "default": 1
     },
     "sessionTimeout": {
       "title": "Session Timeout (minutes)",
-      "type": "number",
-      "description": "Maximum session duration in minutes",
-      "editor": "number",
+      "type": "integer",
+      "description": "Session duration (5-120 minutes)",
       "minimum": 5,
       "maximum": 120,
       "default": 30
