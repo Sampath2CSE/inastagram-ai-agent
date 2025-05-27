@@ -19,9 +19,9 @@
       "isSecret": true
     },
     "openaiApiKey": {
-      "title": "OpenAI API Key",
+      "title": "OpenAI API Key (Optional)",
       "type": "string", 
-      "description": "Your OpenAI API key for AI content generation",
+      "description": "Your OpenAI API key for AI content generation (leave empty for basic automation)",
       "editor": "textfield",
       "isSecret": true
     },
@@ -30,10 +30,7 @@
       "type": "array",
       "description": "Hashtags to monitor and engage with (without #)",
       "editor": "stringList",
-      "items": {
-        "type": "string"
-      },
-      "example": ["digitalmarketing", "socialmedia", "entrepreneur"],
+      "prefill": ["digitalmarketing", "socialmedia", "entrepreneur"],
       "maxItems": 10
     },
     "engagementSettings": {
@@ -41,12 +38,17 @@
       "type": "object",
       "description": "Configure AI engagement behavior",
       "editor": "json",
+      "prefill": {
+        "targetAudience": "Small business owners interested in digital marketing",
+        "engagementRate": 15,
+        "commentRate": 30,
+        "followRate": 5
+      },
       "properties": {
         "targetAudience": {
           "title": "Target Audience",
           "type": "string",
-          "description": "Describe your target audience for better AI decisions",
-          "example": "Small business owners interested in digital marketing"
+          "description": "Describe your target audience for better AI decisions"
         },
         "engagementRate": {
           "title": "Engagement Rate (%)",
@@ -79,6 +81,11 @@
       "type": "object",
       "description": "AI content generation settings",
       "editor": "json",
+      "prefill": {
+        "tone": "friendly",
+        "autoPost": false,
+        "contentThemes": ["motivation", "business tips", "industry insights"]
+      },
       "properties": {
         "tone": {
           "title": "Brand Voice/Tone",
@@ -97,10 +104,7 @@
           "title": "Content Themes",
           "type": "array",
           "description": "Topics for AI content generation",
-          "items": {
-            "type": "string"
-          },
-          "example": ["motivation", "business tips", "industry insights"]
+          "editor": "stringList"
         }
       }
     },
@@ -109,6 +113,11 @@
       "type": "object",
       "description": "Configure automated posting times",
       "editor": "json",
+      "prefill": {
+        "enabled": false,
+        "frequency": "daily",
+        "preferredTimes": ["09:00", "15:00", "20:00"]
+      },
       "properties": {
         "enabled": {
           "title": "Enable Scheduled Posting",
@@ -124,10 +133,7 @@
         "preferredTimes": {
           "title": "Preferred Posting Times (24h format)",
           "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "example": ["09:00", "15:00", "20:00"]
+          "editor": "stringList"
         }
       }
     },
@@ -136,6 +142,12 @@
       "type": "object",
       "description": "Configure safety limits to avoid Instagram restrictions",
       "editor": "json",
+      "prefill": {
+        "maxLikesPerHour": 30,
+        "maxCommentsPerHour": 10,
+        "maxFollowsPerHour": 20,
+        "delayBetweenActions": 30
+      },
       "properties": {
         "maxLikesPerHour": {
           "title": "Max Likes per Hour",
@@ -172,6 +184,11 @@
       "type": "object",
       "description": "Advanced configuration options",
       "editor": "json",
+      "prefill": {
+        "useProxies": true,
+        "maxConcurrency": 1,
+        "sessionTimeout": 30
+      },
       "properties": {
         "useProxies": {
           "title": "Use Apify Proxies",
@@ -196,5 +213,5 @@
       }
     }
   },
-  "required": ["username", "password", "openaiApiKey", "targetHashtags"]
+  "required": ["username", "password", "targetHashtags"]
 }
