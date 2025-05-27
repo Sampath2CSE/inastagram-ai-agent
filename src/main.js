@@ -1,4 +1,4 @@
-// Instagram AI Agent - Fixed for Verification & Modern Instagram
+// Instagram AI Agent - Safe Version Without Proxies
 import { Actor } from 'apify';
 import { PuppeteerCrawler } from 'crawlee';
 
@@ -6,7 +6,7 @@ import { PuppeteerCrawler } from 'crawlee';
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 await Actor.main(async () => {
-    console.log('🤖 Starting Instagram AI Agent...');
+    console.log('🤖 Starting Instagram AI Agent (Safe Mode)...');
     
     // Get input configuration
     const input = await Actor.getInput() ?? {};
@@ -16,17 +16,17 @@ await Actor.main(async () => {
         openaiApiKey = null,
         targetHashtags = ['automation', 'ai'],
         targetAudience = 'General audience',
-        engagementRate = 15,
-        commentRate = 30,
-        followRate = 5,
+        engagementRate = 10, // Lower default rate for safety
+        commentRate = 0,     // Disable comments for safety
+        followRate = 0,      // Disable follows for safety
         brandTone = 'friendly',
         autoPost = false,
         contentThemes = [],
-        maxLikesPerHour = 30,
-        maxCommentsPerHour = 10,
-        maxFollowsPerHour = 20,
-        delayBetweenActions = 30,
-        useProxies = true,
+        maxLikesPerHour = 15, // Much lower limit
+        maxCommentsPerHour = 0,
+        maxFollowsPerHour = 0,
+        delayBetweenActions = 60, // Longer delays
+        useProxies = false,   // Default to no proxies
         sessionTimeout = 30
     } = input;
 
@@ -38,12 +38,13 @@ await Actor.main(async () => {
         throw new Error('At least one target hashtag is required');
     }
 
-    console.log(`📊 Configuration loaded:`);
+    console.log(`📊 Configuration loaded (Safe Mode):`);
     console.log(`- Username: ${username}`);
     console.log(`- Target hashtags: ${targetHashtags.join(', ')}`);
-    console.log(`- Engagement rate: ${engagementRate}%`);
-    console.log(`- Max likes per hour: ${maxLikesPerHour}`);
-    console.log(`- Use proxies: ${useProxies}`);
+    console.log(`- Engagement rate: ${engagementRate}% (conservative)`);
+    console.log(`- Max likes per hour: ${maxLikesPerHour} (limited)`);
+    console.log(`- Use proxies: ${useProxies} (safer without)`);
+    console.log(`- Delay between actions: ${delayBetweenActions}s (human-like)`);
 
     // Initialize results
     const results = {
@@ -54,30 +55,26 @@ await Actor.main(async () => {
         processedHashtags: 0,
         skippedHashtags: 0,
         errors: [],
-        proxyUsed: useProxies,
+        proxyUsed: false, // Always false in safe mode
         loginStatus: 'unknown',
+        safeMode: true,
         timestamp: new Date().toISOString(),
         success: true
     };
 
-    // Configure proxy if enabled
-    let proxyConfiguration = null;
-    if (useProxies) {
-        try {
-            proxyConfiguration = await Actor.createProxyConfiguration({
-                groups: ['RESIDENTIAL'],
-                countryCode: 'US'
-            });
-            console.log('🌐 Proxy configuration created successfully');
-        } catch (error) {
-            console.log('⚠️ Proxy setup failed:', error.message);
-            console.log('⚠️ Continuing without proxies');
-            useProxies = false;
-            results.proxyUsed = false;
-        }
-    }
+    // Rate limiting (very conservative)
+    let likesThisHour = 0;
+    let lastHourReset = Date.now();
 
-    // Create crawler with extended timeout
+    const resetCountersIfNeeded = () => {
+        if (Date.now() - lastHourReset > 3600000) {
+            likesThisHour = 0;
+            lastHourReset = Date.now();
+            console.log('🔄 Rate limit counters reset');
+        }
+    };
+
+    // Create crawler WITHOUT proxy configuration
     const crawlerOptions = {
         launchContext: {
             launchOptions: {
@@ -90,14 +87,14 @@ await Actor.main(async () => {
                     '--no-first-run',
                     '--no-zygote',
                     '--disable-gpu',
-                    '--disable-features=VizDisplayCompositor',
-                    '--disable-blink-features=AutomationControlled'
+                    '--disable-features=VizDisplayCompositor'
+                    // NO PROXY ARGS - using direct connection
                 ]
             }
         },
         maxRequestsPerCrawl: 1,
-        requestHandlerTimeoutSecs: 180, // Increase timeout to 3 minutes
-        proxyConfiguration: proxyConfiguration,
+        requestHandlerTimeoutSecs: 300, // 5 minutes for safety
+        // NO proxyConfiguration - direct connection only
         sessionPoolOptions: {
             maxPoolSize: 1,
             sessionOptions: {
@@ -108,219 +105,156 @@ await Actor.main(async () => {
 
     const crawler = new PuppeteerCrawler({
         ...crawlerOptions,
-        async requestHandler({ page, proxyInfo }) {
+        async requestHandler({ page }) {
             try {
-                // Log proxy information
-                if (proxyInfo) {
-                    console.log(`🌐 Using proxy: ${proxyInfo.hostname}:${proxyInfo.port} (${proxyInfo.countryCode || 'Unknown'})`);
-                    results.actualProxyUsed = `${proxyInfo.hostname}:${proxyInfo.port}`;
-                } else {
-                    console.log('🌐 No proxy in use (direct connection)');
-                }
+                console.log('🌐 Using direct connection (no proxy) for better account safety');
 
-                // Set realistic user agent and viewport
+                // Set very realistic user agent
                 await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
                 await page.setViewport({ width: 1366, height: 768 });
 
-                // Remove webdriver property
+                // Remove automation indicators
                 await page.evaluateOnNewDocument(() => {
                     Object.defineProperty(navigator, 'webdriver', {
                         get: () => undefined,
                     });
+                    // Remove chrome automation flags
+                    window.chrome = {
+                        runtime: {}
+                    };
                 });
 
-                // Login to Instagram
-                console.log('🔐 Logging into Instagram...');
+                // Navigate to Instagram with longer delay
+                console.log('🔐 Logging into Instagram (safe mode)...');
                 await page.goto('https://www.instagram.com/accounts/login/', { 
                     waitUntil: 'networkidle2',
-                    timeout: 30000
+                    timeout: 45000
                 });
 
+                // Wait longer for page to fully load
+                await delay(5000);
+
                 // Wait for login form
-                await page.waitForSelector('input[name="username"]', { timeout: 15000 });
+                await page.waitForSelector('input[name="username"]', { timeout: 20000 });
                 await delay(2000);
                 
-                // Enter credentials with more human-like behavior
+                // Very human-like typing
+                console.log('⌨️ Entering credentials with human-like timing...');
                 await page.focus('input[name="username"]');
-                await page.keyboard.type(username, { delay: 150 });
                 await delay(1000);
+                for (const char of username) {
+                    await page.keyboard.type(char);
+                    await delay(100 + Math.random() * 100); // Random typing speed
+                }
                 
-                await page.focus('input[name="password"]');
-                await page.keyboard.type(password, { delay: 150 });
                 await delay(2000);
+                await page.focus('input[name="password"]');
+                await delay(1000);
+                for (const char of password) {
+                    await page.keyboard.type(char);
+                    await delay(100 + Math.random() * 100);
+                }
+                
+                // Wait before clicking login
+                await delay(3000);
                 
                 // Click login button
+                console.log('🔄 Submitting login...');
                 await page.click('button[type="submit"]');
-                console.log('🔄 Login submitted, waiting for response...');
                 
                 // Wait longer for login response
-                await delay(5000);
+                await delay(8000);
                 
-                // Check current URL and handle different scenarios
+                // Check login result
                 const currentUrl = page.url();
-                console.log(`Current URL after login: ${currentUrl}`);
+                console.log(`Current URL: ${currentUrl}`);
                 
                 if (currentUrl.includes('/challenge/') || currentUrl.includes('/auth_platform/')) {
                     results.loginStatus = 'verification_required';
-                    console.log('🔒 Instagram requires additional verification (2FA/phone/email)');
-                    console.log('⚠️ This account needs manual verification. Try:');
-                    console.log('   1. Disable 2FA temporarily');
-                    console.log('   2. Use a different account');
-                    console.log('   3. Verify account manually first');
-                    
-                    results.errors.push('Account requires verification - 2FA or security check needed');
+                    console.log('🔒 Account requires verification - this is common after using proxies');
+                    console.log('💡 Solution: Wait 24-48 hours and try again, or verify manually');
+                    results.errors.push('Account flagged for verification - likely due to previous proxy use');
                     await Actor.pushData(results);
-                    return; // Exit gracefully instead of throwing error
+                    return;
                 }
                 
                 if (currentUrl.includes('/accounts/login/')) {
                     results.loginStatus = 'failed';
-                    // Check for error messages
-                    try {
-                        const errorElement = await page.$('div[role="alert"], .error-message, #slfErrorAlert');
-                        if (errorElement) {
-                            const errorText = await page.evaluate(el => el.textContent, errorElement);
-                            console.log(`❌ Login error: ${errorText}`);
-                            results.errors.push(`Login failed: ${errorText}`);
-                        } else {
-                            results.errors.push('Login failed: Invalid credentials or account locked');
-                        }
-                    } catch (e) {
-                        results.errors.push('Login failed: Unknown error');
-                    }
+                    console.log('❌ Login failed - check credentials');
+                    results.errors.push('Login failed - invalid credentials or account locked');
                     await Actor.pushData(results);
                     return;
                 }
 
                 results.loginStatus = 'success';
-                console.log('✅ Successfully logged into Instagram');
+                console.log('✅ Successfully logged into Instagram with direct connection');
 
-                // Handle post-login popups
-                await delay(3000);
+                // Handle popups very carefully
+                await delay(5000);
                 try {
-                    // Handle multiple types of popups
-                    const popupSelectors = [
-                        "//button[contains(text(), 'Not Now')]",
-                        "//button[contains(text(), 'Not now')]", 
-                        "//button[contains(text(), 'Save Info')]",
-                        "//button[contains(text(), 'Turn on')]"
-                    ];
-                    
-                    for (const selector of popupSelectors) {
-                        try {
-                            const buttons = await page.$x(selector);
-                            if (buttons.length > 0) {
-                                await buttons[0].click();
-                                console.log(`✅ Dismissed popup: ${selector}`);
-                                await delay(2000);
-                                break;
-                            }
-                        } catch (e) {
-                            continue;
-                        }
+                    const notNowButtons = await page.$x("//button[contains(text(), 'Not Now') or contains(text(), 'Not now')]");
+                    if (notNowButtons.length > 0) {
+                        await notNowButtons[0].click();
+                        console.log('✅ Dismissed popup');
+                        await delay(3000);
                     }
                 } catch (e) {
-                    console.log('No popups found');
+                    console.log('No popups to dismiss');
                 }
 
-                // Try a different approach - go to explore page first
-                console.log('🏠 Navigating to explore page...');
-                await page.goto('https://www.instagram.com/explore/', {
+                // Go to home feed first (more natural)
+                console.log('🏠 Navigating to home feed first...');
+                await page.goto('https://www.instagram.com/', {
                     waitUntil: 'networkidle2',
                     timeout: 30000
                 });
-                await delay(3000);
+                await delay(5000);
 
-                // Process hashtags
-                for (const hashtag of targetHashtags.slice(0, 2)) {
+                // Process hashtags with extreme caution
+                for (const hashtag of targetHashtags.slice(0, 1)) { // Only 1 hashtag in safe mode
+                    resetCountersIfNeeded();
+                    
+                    if (likesThisHour >= maxLikesPerHour) {
+                        console.log('⚠️ Daily like limit reached for safety');
+                        break;
+                    }
+
                     try {
-                        console.log(`\n🎯 Processing hashtag: #${hashtag}`);
+                        console.log(`\n🎯 Processing hashtag: #${hashtag} (safe mode)`);
                         
-                        // Use search instead of direct hashtag navigation
-                        console.log('🔍 Using Instagram search...');
+                        // Navigate very slowly to hashtag
+                        console.log('🔄 Navigating to hashtag page...');
+                        await page.goto(`https://www.instagram.com/explore/tags/${hashtag}/`, {
+                            waitUntil: 'networkidle2',
+                            timeout: 45000
+                        });
                         
-                        // Click search
-                        try {
-                            await page.click('a[href="/explore/"]', { timeout: 5000 });
-                            await delay(2000);
-                        } catch (e) {
-                            console.log('Explore link not found, trying search icon...');
-                        }
-                        
-                        // Try to find and use search input
-                        const searchSelectors = [
-                            'input[placeholder*="Search"]',
-                            'input[aria-label*="Search"]',
-                            'input[type="search"]',
-                            'input.x1lugfcp' // Instagram search input class
-                        ];
-                        
-                        let searchInput = null;
-                        for (const selector of searchSelectors) {
-                            try {
-                                searchInput = await page.$(selector);
-                                if (searchInput) {
-                                    console.log(`✅ Found search input: ${selector}`);
-                                    break;
-                                }
-                            } catch (e) {
-                                continue;
-                            }
-                        }
-                        
-                        if (searchInput) {
-                            // Use search to find hashtag
-                            await searchInput.click();
-                            await delay(1000);
-                            await searchInput.type(`#${hashtag}`, { delay: 100 });
-                            await delay(2000);
-                            
-                            // Try to click on hashtag result
-                            try {
-                                await page.click(`a[href*="/explore/tags/${hashtag}/"]`, { timeout: 5000 });
-                                await delay(3000);
-                            } catch (e) {
-                                console.log('Hashtag link not found in search results');
-                                results.skippedHashtags++;
-                                continue;
-                            }
-                        } else {
-                            // Fallback: direct navigation
-                            console.log('🔄 Fallback: Direct hashtag navigation...');
-                            await page.goto(`https://www.instagram.com/explore/tags/${hashtag}/`, {
-                                waitUntil: 'networkidle2',
-                                timeout: 30000
-                            });
-                            await delay(5000);
-                        }
+                        // Wait much longer for content to load
+                        await delay(8000);
 
-                        // Look for posts with updated selectors for 2025 Instagram
-                        console.log('🔍 Looking for posts...');
+                        // Look for posts with very patient approach
+                        console.log('🔍 Looking for posts (patient approach)...');
                         let posts = [];
                         
-                        // Modern Instagram selectors (updated for 2025)
-                        const modernSelectors = [
-                            'a[href*="/p/"][role="link"]',
-                            'a[href*="/reel/"][role="link"]', 
-                            'div[role="button"] a[href*="/p/"]',
-                            'article a[href*="/p/"]',
-                            'a[href*="/p/"]'
+                        const safeSelectors = [
+                            'a[href*="/p/"]',
+                            'article a[href*="/p/"]'
                         ];
 
-                        for (const selector of modernSelectors) {
+                        for (const selector of safeSelectors) {
                             try {
-                                console.log(`🔍 Trying modern selector: ${selector}`);
-                                await page.waitForSelector(selector, { timeout: 8000 });
+                                console.log(`🔍 Trying selector: ${selector}`);
+                                await page.waitForSelector(selector, { timeout: 15000 });
                                 
                                 posts = await page.$$eval(selector, links => 
                                     links
                                         .map(link => link.href)
-                                        .filter(href => href && (href.includes('/p/') || href.includes('/reel/')))
-                                        .slice(0, 6)
+                                        .filter(href => href && href.includes('/p/'))
+                                        .slice(0, 3) // Very limited number
                                 );
                                 
                                 if (posts.length > 0) {
-                                    console.log(`✅ Found ${posts.length} posts using: ${selector}`);
+                                    console.log(`✅ Found ${posts.length} posts`);
                                     break;
                                 }
                             } catch (selectorError) {
@@ -336,55 +270,55 @@ await Actor.main(async () => {
                         }
 
                         results.processedHashtags++;
+                        
+                        // Process only 1-2 posts maximum in safe mode
                         const postsToEngage = Math.min(2, posts.length);
-                        console.log(`🎯 Will process ${postsToEngage} posts`);
+                        console.log(`🎯 Will process ${postsToEngage} posts (safe mode)`);
 
-                        // Process posts
+                        // Process posts with extreme caution
                         for (let i = 0; i < postsToEngage; i++) {
+                            if (likesThisHour >= maxLikesPerHour) break;
+
                             const postUrl = posts[i];
                             
                             try {
                                 console.log(`📝 Processing post ${i + 1}/${postsToEngage}`);
                                 
-                                await page.goto(postUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-                                await delay(3000);
+                                await page.goto(postUrl, { waitUntil: 'networkidle2', timeout: 45000 });
+                                await delay(5000); // Wait for post to fully load
 
-                                // Try to like with modern selectors
+                                // Very careful like attempt
                                 let liked = false;
-                                const likeSelectors = [
-                                    'button[aria-label="Like"] svg',
-                                    'span[aria-label="Like"]',
-                                    'svg[aria-label="Like"]',
-                                    'button svg[aria-label="Like"]'
-                                ];
-
-                                for (const likeSelector of likeSelectors) {
-                                    try {
-                                        const likeElement = await page.$(likeSelector);
-                                        if (likeElement) {
-                                            await likeElement.click();
-                                            liked = true;
-                                            results.totalLikes++;
-                                            console.log(`❤️ Post liked! Total: ${results.totalLikes}`);
-                                            
-                                            try {
-                                                await Actor.chargeEvent('engagement_action', 1);
-                                            } catch (chargeError) {
-                                                console.log('Note: Event charging not available in test mode');
-                                            }
-                                            break;
+                                try {
+                                    const likeButton = await page.$('svg[aria-label="Like"]');
+                                    if (likeButton) {
+                                        // Scroll to button first (more human-like)
+                                        await likeButton.scrollIntoView();
+                                        await delay(2000);
+                                        
+                                        await likeButton.click();
+                                        liked = true;
+                                        likesThisHour++;
+                                        results.totalLikes++;
+                                        console.log(`❤️ Post liked safely! Total: ${results.totalLikes}/${maxLikesPerHour}`);
+                                        
+                                        // Charge for event
+                                        try {
+                                            await Actor.chargeEvent('engagement_action', 1);
+                                        } catch (chargeError) {
+                                            console.log('Note: Event charging not available in test mode');
                                         }
-                                    } catch (e) {
-                                        continue;
                                     }
-                                }
-
-                                if (!liked) {
-                                    console.log('❤️ Post already liked or like button not accessible');
+                                } catch (e) {
+                                    console.log('❤️ Like button not accessible or post already liked');
                                 }
 
                                 results.processedPosts++;
-                                await delay(delayBetweenActions * 1000 + Math.random() * 5000);
+
+                                // Very long delay between actions (human-like)
+                                const longDelay = delayBetweenActions * 1000 + Math.random() * 30000;
+                                console.log(`⏱️ Safe delay: ${Math.round(longDelay/1000)}s before next action...`);
+                                await delay(longDelay);
 
                             } catch (error) {
                                 console.error('❌ Error processing post:', error.message);
@@ -392,7 +326,9 @@ await Actor.main(async () => {
                             }
                         }
 
-                        await delay(15000 + Math.random() * 10000);
+                        // Very long delay between hashtags (if processing multiple)
+                        console.log(`⏱️ Long delay before next hashtag for account safety...`);
+                        await delay(120000 + Math.random() * 60000); // 2-3 minutes
 
                     } catch (error) {
                         console.error(`❌ Error processing hashtag #${hashtag}:`, error.message);
@@ -401,23 +337,22 @@ await Actor.main(async () => {
                     }
                 }
 
-                // Store final results
+                // Store results
                 await Actor.pushData(results);
-                console.log('\n📊 Instagram AI Agent Results:');
+                console.log('\n📊 Instagram AI Agent Results (Safe Mode):');
                 console.log(`- Login status: ${results.loginStatus}`);
                 console.log(`- Processed hashtags: ${results.processedHashtags}`);
                 console.log(`- Skipped hashtags: ${results.skippedHashtags}`);
                 console.log(`- Processed posts: ${results.processedPosts}`);
-                console.log(`- Total likes: ${results.totalLikes}`);
-                console.log(`- Proxy used: ${results.proxyUsed ? 'Yes' : 'No'}`);
+                console.log(`- Total likes: ${results.totalLikes}/${maxLikesPerHour}`);
+                console.log(`- Direct connection used: Yes (safer for account)`);
                 console.log(`- Errors: ${results.errors.length}`);
                 
                 if (results.totalLikes > 0) {
-                    console.log(`🎉 Campaign successful! Liked ${results.totalLikes} posts`);
-                } else if (results.loginStatus === 'verification_required') {
-                    console.log(`🔒 Account needs verification - use a different account or disable 2FA`);
+                    console.log(`🎉 Safe campaign completed! Liked ${results.totalLikes} posts`);
+                    console.log(`💡 Account safety maintained with conservative approach`);
                 } else {
-                    console.log(`⚠️ No engagement completed. Check account status and hashtag availability.`);
+                    console.log(`⚠️ No engagement completed - check account status`);
                 }
 
             } catch (error) {
@@ -425,11 +360,10 @@ await Actor.main(async () => {
                 results.success = false;
                 results.errors.push(`Fatal: ${error.message}`);
                 await Actor.pushData(results);
-                // Don't throw - let it complete gracefully
             }
         }
     });
 
     await crawler.run(['https://www.instagram.com']);
-    console.log('✅ Instagram AI Agent completed successfully!');
+    console.log('✅ Instagram AI Agent completed in safe mode!');
 });

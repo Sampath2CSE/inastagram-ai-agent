@@ -115,8 +115,8 @@
     "useProxies": {
       "title": "Use Apify Proxies",
       "type": "boolean",
-      "description": "Use residential proxies for security",
-      "default": true
+      "description": "Use proxies (WARNING: May trigger account verification)",
+      "default": false
     },
     "sessionTimeout": {
       "title": "Session Timeout (minutes)",
