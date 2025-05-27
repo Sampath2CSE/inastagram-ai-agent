@@ -1,0 +1,35 @@
+{
+  "name": "instagram-ai-agent",
+  "version": "1.0.0",
+  "description": "AI-powered Instagram automation agent for content generation and engagement",
+  "main": "src/main.js",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "jest"
+  },
+  "keywords": [
+    "instagram",
+    "ai",
+    "automation", 
+    "social-media",
+    "engagement",
+    "content-generation",
+    "marketing",
+    "scraping"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "apify": "^3.1.0",
+    "crawlee": "^3.5.0",
+    "openai": "^4.20.0",
+    "puppeteer": "^21.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/instagram-ai-agent"
+  }
+}

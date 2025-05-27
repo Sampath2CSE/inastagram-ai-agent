@@ -1,0 +1,200 @@
+{
+  "title": "Instagram AI Agent Configuration",
+  "description": "Configure your AI-powered Instagram automation agent for optimal engagement and content strategy",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "username": {
+      "title": "Instagram Username",
+      "type": "string",
+      "description": "Your Instagram username (without @)",
+      "editor": "textfield",
+      "example": "your_username"
+    },
+    "password": {
+      "title": "Instagram Password", 
+      "type": "string",
+      "description": "Your Instagram password",
+      "editor": "textfield",
+      "isSecret": true
+    },
+    "openaiApiKey": {
+      "title": "OpenAI API Key",
+      "type": "string", 
+      "description": "Your OpenAI API key for AI content generation",
+      "editor": "textfield",
+      "isSecret": true
+    },
+    "targetHashtags": {
+      "title": "Target Hashtags",
+      "type": "array",
+      "description": "Hashtags to monitor and engage with (without #)",
+      "editor": "stringList",
+      "items": {
+        "type": "string"
+      },
+      "example": ["digitalmarketing", "socialmedia", "entrepreneur"],
+      "maxItems": 10
+    },
+    "engagementSettings": {
+      "title": "Engagement Settings",
+      "type": "object",
+      "description": "Configure AI engagement behavior",
+      "editor": "json",
+      "properties": {
+        "targetAudience": {
+          "title": "Target Audience",
+          "type": "string",
+          "description": "Describe your target audience for better AI decisions",
+          "example": "Small business owners interested in digital marketing"
+        },
+        "engagementRate": {
+          "title": "Engagement Rate (%)",
+          "type": "number",
+          "description": "Percentage of discovered posts to engage with",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 15
+        },
+        "commentRate": {
+          "title": "Comment Rate (%)",
+          "type": "number", 
+          "description": "Percentage of liked posts to also comment on",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 30
+        },
+        "followRate": {
+          "title": "Follow Rate (%)",
+          "type": "number",
+          "description": "Percentage of engaged posts to follow the user",
+          "minimum": 0,
+          "maximum": 20,
+          "default": 5
+        }
+      }
+    },
+    "contentStrategy": {
+      "title": "Content Strategy",
+      "type": "object",
+      "description": "AI content generation settings",
+      "editor": "json",
+      "properties": {
+        "tone": {
+          "title": "Brand Voice/Tone",
+          "type": "string",
+          "description": "Tone for AI-generated content",
+          "enum": ["professional", "casual", "friendly", "authoritative", "creative", "humorous"],
+          "default": "friendly"
+        },
+        "autoPost": {
+          "title": "Enable Auto-Posting",
+          "type": "boolean",
+          "description": "Enable AI-generated content posting",
+          "default": false
+        },
+        "contentThemes": {
+          "title": "Content Themes",
+          "type": "array",
+          "description": "Topics for AI content generation",
+          "items": {
+            "type": "string"
+          },
+          "example": ["motivation", "business tips", "industry insights"]
+        }
+      }
+    },
+    "postingSchedule": {
+      "title": "Posting Schedule",
+      "type": "object",
+      "description": "Configure automated posting times",
+      "editor": "json",
+      "properties": {
+        "enabled": {
+          "title": "Enable Scheduled Posting",
+          "type": "boolean",
+          "default": false
+        },
+        "frequency": {
+          "title": "Posting Frequency",
+          "type": "string",
+          "enum": ["daily", "every_other_day", "weekly", "custom"],
+          "default": "daily"
+        },
+        "preferredTimes": {
+          "title": "Preferred Posting Times (24h format)",
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "example": ["09:00", "15:00", "20:00"]
+        }
+      }
+    },
+    "safetyLimits": {
+      "title": "Safety & Rate Limits",
+      "type": "object",
+      "description": "Configure safety limits to avoid Instagram restrictions",
+      "editor": "json",
+      "properties": {
+        "maxLikesPerHour": {
+          "title": "Max Likes per Hour",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 30
+        },
+        "maxCommentsPerHour": {
+          "title": "Max Comments per Hour", 
+          "type": "number",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 10
+        },
+        "maxFollowsPerHour": {
+          "title": "Max Follows per Hour",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 50,
+          "default": 20
+        },
+        "delayBetweenActions": {
+          "title": "Delay Between Actions (seconds)",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 300,
+          "default": 30
+        }
+      }
+    },
+    "advancedSettings": {
+      "title": "Advanced Settings",
+      "type": "object",
+      "description": "Advanced configuration options",
+      "editor": "json",
+      "properties": {
+        "useProxies": {
+          "title": "Use Apify Proxies",
+          "type": "boolean",
+          "description": "Use residential proxies for better security",
+          "default": true
+        },
+        "maxConcurrency": {
+          "title": "Max Concurrency",
+          "type": "number",
+          "minimum": 1,
+          "maximum": 5,
+          "default": 1
+        },
+        "sessionTimeout": {
+          "title": "Session Timeout (minutes)",
+          "type": "number",
+          "minimum": 5,
+          "maximum": 120,
+          "default": 30
+        }
+      }
+    }
+  },
+  "required": ["username", "password", "openaiApiKey", "targetHashtags"]
+}
