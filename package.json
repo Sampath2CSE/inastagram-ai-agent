@@ -1,43 +1,16 @@
 {
   "name": "instagram-ai-agent",
   "version": "1.0.0",
-  "description": "AI-powered Instagram automation agent for content generation and engagement",
+  "description": "Instagram automation agent",
   "main": "src/main.js",
   "scripts": {
-    "start": "node src/main.js",
-    "test": "jest"
+    "start": "node src/main.js"
   },
-  "keywords": [
-    "instagram",
-    "ai",
-    "automation", 
-    "social-media",
-    "engagement",
-    "content-generation",
-    "marketing",
-    "scraping"
-  ],
-  "author": {
-    "name": "Nallamala Sampath Kumar",
-    "email": "nallamalasampathkumar@gmail.com",
-    "url": "https://www.automateagents.co"
+  "engines": {
+    "node": ">=18.0.0"
   },
-  "license": "MIT",
   "dependencies": {
     "apify": "^3.1.0",
-    "crawlee": "^3.5.0",
-    "openai": "^4.20.0",
-    "puppeteer": "^21.0.0"
-  },
-  "devDependencies": {
-    "jest": "^29.0.0"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/Sampath2CSE/inastagram-ai-agent.git"
-  },
-  "homepage": "https://github.com/Sampath2CSE/inastagram-ai-agent#readme",
-  "bugs": {
-    "url": "https://github.com/Sampath2CSE/inastagram-ai-agent/issues"
+    "crawlee": "^3.5.0"
   }
 }

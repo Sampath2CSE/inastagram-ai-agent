@@ -1,11 +1,11 @@
-# Use Apify's Node.js base image with Puppeteer pre-installed
-FROM apify/actor-node-puppeteer-chrome:18
+# Use newer Node.js base image to avoid engine warnings
+FROM apify/actor-node-puppeteer-chrome:20
 
 # Copy package.json first for better Docker layer caching
 COPY package.json ./
 
-# Install dependencies using npm install instead of npm ci
-RUN npm install --only=production
+# Install dependencies with modern NPM syntax
+RUN npm install --omit=dev
 
 # Copy all source code
 COPY . ./
