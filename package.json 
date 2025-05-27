@@ -17,7 +17,11 @@
     "marketing",
     "scraping"
   ],
-  "author": "Your Name",
+  "author": {
+    "name": "Nallamala Sampath Kumar",
+    "email": "nallamalasampathkumar@gmail.com",
+    "url": "https://www.automateagents.co"
+  },
   "license": "MIT",
   "dependencies": {
     "apify": "^3.1.0",
@@ -30,6 +34,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/instagram-ai-agent"
+    "url": "https://github.com/Sampath2CSE/inastagram-ai-agent.git"
+  },
+  "homepage": "https://github.com/Sampath2CSE/inastagram-ai-agent#readme",
+  "bugs": {
+    "url": "https://github.com/Sampath2CSE/inastagram-ai-agent/issues"
   }
 }
