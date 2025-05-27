@@ -1,43 +1,32 @@
-// Instagram AI Agent - Flattened Configuration Version
+// Instagram AI Agent - Fixed with Proper Proxy Support
 import { Actor } from 'apify';
 import { PuppeteerCrawler } from 'crawlee';
+
+// Helper function for delays (compatible with all Puppeteer versions)
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 await Actor.main(async () => {
     console.log('🤖 Starting Instagram AI Agent...');
     
-    // Get input configuration (now flattened)
+    // Get input configuration
     const input = await Actor.getInput() ?? {};
     const {
         username,
         password,
         openaiApiKey = null,
         targetHashtags = ['automation', 'ai'],
-        
-        // Engagement settings (flattened)
         targetAudience = 'General audience',
         engagementRate = 15,
         commentRate = 30,
         followRate = 5,
-        
-        // Content strategy (flattened)
         brandTone = 'friendly',
         autoPost = false,
         contentThemes = [],
-        
-        // Posting schedule (flattened)
-        enableScheduledPosting = false,
-        postingFrequency = 'daily',
-        preferredPostingTimes = [],
-        
-        // Safety limits (flattened)
         maxLikesPerHour = 30,
         maxCommentsPerHour = 10,
         maxFollowsPerHour = 20,
         delayBetweenActions = 30,
-        
-        // Advanced settings (flattened)
         useProxies = true,
-        maxConcurrency = 1,
         sessionTimeout = 30
     } = input;
 
@@ -52,29 +41,18 @@ await Actor.main(async () => {
     console.log(`📊 Configuration loaded:`);
     console.log(`- Username: ${username}`);
     console.log(`- Target hashtags: ${targetHashtags.join(', ')}`);
-    console.log(`- Target audience: ${targetAudience}`);
     console.log(`- Engagement rate: ${engagementRate}%`);
-    console.log(`- Comment rate: ${commentRate}%`);
-    console.log(`- Follow rate: ${followRate}%`);
-    console.log(`- Brand tone: ${brandTone}`);
     console.log(`- Max likes per hour: ${maxLikesPerHour}`);
-    console.log(`- Delay between actions: ${delayBetweenActions}s`);
-    console.log(`- AI features: ${openaiApiKey ? 'Enabled' : 'Basic mode'}`);
-    console.log(`- Proxy usage: ${useProxies ? 'Enabled' : 'Disabled'}`);
-    console.log(`- Auto-posting: ${autoPost ? 'Enabled' : 'Disabled'}`);
+    console.log(`- Use proxies: ${useProxies}`);
 
     // Rate limiting counters
     let likesThisHour = 0;
-    let commentsThisHour = 0;
-    let followsThisHour = 0;
     let lastHourReset = Date.now();
 
     // Reset counters every hour
     const resetCountersIfNeeded = () => {
         if (Date.now() - lastHourReset > 3600000) { // 1 hour
             likesThisHour = 0;
-            commentsThisHour = 0;
-            followsThisHour = 0;
             lastHourReset = Date.now();
             console.log('🔄 Rate limit counters reset');
         }
@@ -88,23 +66,34 @@ await Actor.main(async () => {
         processedPosts: 0,
         processedHashtags: 0,
         errors: [],
-        configuration: {
-            username,
-            hashtags: targetHashtags,
-            engagementRate,
-            commentRate,
-            followRate,
-            maxLikesPerHour,
-            maxCommentsPerHour,
-            maxFollowsPerHour,
-            targetAudience,
-            brandTone
-        },
+        proxyUsed: useProxies,
         timestamp: new Date().toISOString(),
         success: true
     };
 
-    // Create crawler with advanced settings
+    // Configure proxy if enabled
+    let proxyConfiguration = null;
+    if (useProxies) {
+        try {
+            proxyConfiguration = await Actor.createProxyConfiguration({
+                groups: ['RESIDENTIAL'],
+                countryCode: 'US'
+            });
+            console.log('🌐 Proxy configuration created successfully');
+            
+            // Test proxy
+            const proxyInfo = await proxyConfiguration.newProxyInfo();
+            console.log(`🌐 Using proxy: ${proxyInfo.hostname}:${proxyInfo.port}`);
+            results.proxyInfo = `${proxyInfo.hostname}:${proxyInfo.port}`;
+        } catch (error) {
+            console.log('⚠️ Proxy setup failed:', error.message);
+            console.log('⚠️ Continuing without proxies');
+            useProxies = false;
+            results.proxyUsed = false;
+        }
+    }
+
+    // Create crawler with proper proxy configuration
     const crawlerOptions = {
         launchContext: {
             launchOptions: {
@@ -116,35 +105,41 @@ await Actor.main(async () => {
                     '--disable-accelerated-2d-canvas',
                     '--no-first-run',
                     '--no-zygote',
-                    '--disable-gpu'
+                    '--disable-gpu',
+                    '--disable-features=VizDisplayCompositor'
                 ]
             }
         },
         maxRequestsPerCrawl: 1,
+        // Add proxy configuration to crawler
+        proxyConfiguration: proxyConfiguration,
+        
+        // Configure session pool for proxy rotation
         sessionPoolOptions: {
-            maxPoolSize: maxConcurrency,
+            maxPoolSize: 1,
             sessionOptions: {
                 maxUsageCount: 1
             }
         }
     };
 
-    // Add proxy configuration if enabled
-    if (useProxies) {
-        crawlerOptions.proxyConfiguration = await Actor.createProxyConfiguration({
-            groups: ['RESIDENTIAL']
-        });
-        console.log('🌐 Using Apify residential proxies');
-    }
-
     const crawler = new PuppeteerCrawler({
         ...crawlerOptions,
-        async requestHandler({ page }) {
+        async requestHandler({ page, proxyInfo }) {
             try {
-                // Set timeout for session
-                setTimeout(() => {
-                    console.log('⏰ Session timeout reached');
-                }, sessionTimeout * 60 * 1000);
+                // Log proxy information if available
+                if (proxyInfo) {
+                    console.log(`🌐 Using proxy: ${proxyInfo.hostname}:${proxyInfo.port} (${proxyInfo.countryCode || 'Unknown'})`);
+                    results.actualProxyUsed = `${proxyInfo.hostname}:${proxyInfo.port}`;
+                } else {
+                    console.log('🌐 No proxy in use (direct connection)');
+                }
+
+                // Set user agent to look more natural
+                await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
+
+                // Set viewport
+                await page.setViewport({ width: 1366, height: 768 });
 
                 // Login to Instagram
                 console.log('🔐 Logging into Instagram...');
@@ -155,36 +150,72 @@ await Actor.main(async () => {
 
                 // Wait for login form and enter credentials
                 await page.waitForSelector('input[name="username"]', { timeout: 15000 });
+                
+                // Clear any existing text and type username
+                await page.click('input[name="username"]', { clickCount: 3 });
                 await page.type('input[name="username"]', username, { delay: 100 });
-                await page.waitForTimeout(1000);
+                await delay(1000);
+                
+                // Clear any existing text and type password
+                await page.click('input[name="password"]', { clickCount: 3 });
                 await page.type('input[name="password"]', password, { delay: 100 });
+                await delay(1000);
                 
                 // Click login
                 await page.click('button[type="submit"]');
-                await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
-
-                // Handle potential popups
+                
+                // Wait for navigation or error
                 try {
-                    await page.waitForTimeout(3000);
-                    const notNowButton = await page.$x("//button[contains(text(), 'Not Now')]");
-                    if (notNowButton.length > 0) {
-                        await notNowButton[0].click();
-                        await page.waitForTimeout(2000);
-                    }
-                } catch (e) {
-                    console.log('No popup found');
+                    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
+                } catch (navError) {
+                    console.log('Navigation timeout, checking current state...');
                 }
 
-                // Check if login was successful
+                // Handle potential popups and verification steps
+                await delay(3000);
+                
+                // Check for "Save Your Login Info" popup
+                try {
+                    const notNowButtons = await page.$x("//button[contains(text(), 'Not Now') or contains(text(), 'Not now')]");
+                    if (notNowButtons.length > 0) {
+                        await notNowButtons[0].click();
+                        console.log('✅ Dismissed "Save Login Info" popup');
+                        await delay(2000);
+                    }
+                } catch (e) {
+                    console.log('No "Save Login Info" popup found');
+                }
+
+                // Check for notifications popup
+                try {
+                    const notNowButtons = await page.$x("//button[contains(text(), 'Not Now')]");
+                    if (notNowButtons.length > 0) {
+                        await notNowButtons[0].click();
+                        console.log('✅ Dismissed notifications popup');
+                        await delay(2000);
+                    }
+                } catch (e) {
+                    console.log('No notifications popup found');
+                }
+
+                // Verify login was successful
                 const currentUrl = page.url();
-                if (currentUrl.includes('/accounts/login/')) {
-                    throw new Error('Login failed - check credentials');
+                console.log(`Current URL after login: ${currentUrl}`);
+                
+                if (currentUrl.includes('/accounts/login/') || currentUrl.includes('/challenge/')) {
+                    // Check for specific error messages
+                    const errorElements = await page.$$('div[role="alert"], .error-message, #slfErrorAlert');
+                    if (errorElements.length > 0) {
+                        const errorText = await page.evaluate(el => el.textContent, errorElements[0]);
+                        throw new Error(`Login failed: ${errorText}`);
+                    }
+                    throw new Error('Login failed - still on login page. Check credentials or account status.');
                 }
 
                 console.log('✅ Successfully logged into Instagram');
 
                 // Process each target hashtag
-                for (const hashtag of targetHashtags.slice(0, 3)) { // Limit hashtags for safety
+                for (const hashtag of targetHashtags.slice(0, 2)) { // Limit hashtags for safety
                     resetCountersIfNeeded();
                     
                     if (likesThisHour >= maxLikesPerHour) {
@@ -212,21 +243,24 @@ await Actor.main(async () => {
                         console.log(`📱 Found ${posts.length} posts for #${hashtag}`);
                         results.processedHashtags++;
 
-                        // Calculate how many posts to engage with based on engagement rate
-                        const postsToEngage = Math.ceil(posts.length * (engagementRate / 100));
+                        // Calculate how many posts to engage with
+                        const postsToEngage = Math.min(3, Math.ceil(posts.length * (engagementRate / 100)));
                         console.log(`🎯 Will engage with ${postsToEngage} posts (${engagementRate}% rate)`);
 
                         // Process posts
-                        for (let i = 0; i < Math.min(postsToEngage, posts.length); i++) {
+                        for (let i = 0; i < postsToEngage; i++) {
                             if (likesThisHour >= maxLikesPerHour) break;
 
                             const postUrl = posts[i];
 
                             try {
-                                console.log(`📝 Processing post ${i + 1}/${postsToEngage}: ${postUrl}`);
+                                console.log(`📝 Processing post ${i + 1}/${postsToEngage}: ${postUrl.split('/p/')[1]?.split('/')[0] || 'unknown'}`);
                                 
                                 await page.goto(postUrl, { waitUntil: 'networkidle2', timeout: 30000 });
                                 await page.waitForSelector('article', { timeout: 10000 });
+
+                                // Wait a moment for everything to load
+                                await delay(2000);
 
                                 // Try to like the post
                                 const likeButton = await page.$('svg[aria-label="Like"]');
@@ -237,7 +271,12 @@ await Actor.main(async () => {
                                     console.log(`❤️ Post liked! (${likesThisHour}/${maxLikesPerHour} this hour)`);
                                     
                                     // Charge for event (monetization)
-                                    await Actor.chargeEvent('engagement_action', 1);
+                                    try {
+                                        await Actor.chargeEvent('engagement_action', 1);
+                                        console.log('💰 Charged for engagement action');
+                                    } catch (chargeError) {
+                                        console.log('Note: Event charging not available in test mode');
+                                    }
                                 } else {
                                     console.log('❤️ Post already liked or like button not found');
                                 }
@@ -245,17 +284,20 @@ await Actor.main(async () => {
                                 results.processedPosts++;
 
                                 // Human-like delay between actions
-                                const delay = (delayBetweenActions * 1000) + (Math.random() * 5000);
-                                await page.waitForTimeout(delay);
+                                const actionDelay = (delayBetweenActions * 1000) + (Math.random() * 5000);
+                                console.log(`⏱️ Waiting ${Math.round(actionDelay/1000)}s before next action...`);
+                                await delay(actionDelay);
 
                             } catch (error) {
                                 console.error('❌ Error processing post:', error.message);
-                                results.errors.push(`Post ${postUrl}: ${error.message}`);
+                                results.errors.push(`Post error: ${error.message}`);
                             }
                         }
 
                         // Delay between hashtags
-                        await page.waitForTimeout(Math.random() * 15000 + 10000);
+                        const hashtagDelay = Math.random() * 15000 + 10000;
+                        console.log(`⏱️ Waiting ${Math.round(hashtagDelay/1000)}s before next hashtag...`);
+                        await delay(hashtagDelay);
 
                     } catch (error) {
                         console.error(`❌ Error processing hashtag #${hashtag}:`, error.message);
@@ -269,11 +311,13 @@ await Actor.main(async () => {
                 console.log(`- Processed hashtags: ${results.processedHashtags}`);
                 console.log(`- Processed posts: ${results.processedPosts}`);
                 console.log(`- Total likes: ${results.totalLikes}`);
-                console.log(`- Total comments: ${results.totalComments}`);
-                console.log(`- Total follows: ${results.totalFollows}`);
+                console.log(`- Proxy used: ${results.proxyUsed ? 'Yes' : 'No'}`);
+                if (results.actualProxyUsed) {
+                    console.log(`- Actual proxy: ${results.actualProxyUsed}`);
+                }
                 console.log(`- Errors: ${results.errors.length}`);
-                if (results.processedPosts > 0) {
-                    console.log(`- Success rate: ${((results.processedPosts - results.errors.length) / results.processedPosts * 100).toFixed(1)}%`);
+                if (results.errors.length > 0) {
+                    console.log('❌ Errors:', results.errors);
                 }
 
             } catch (error) {
