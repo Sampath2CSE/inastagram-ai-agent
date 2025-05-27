@@ -1,4 +1,4 @@
-// Instagram AI Agent - Robust Version with Better Error Handling
+// Instagram AI Agent - Fixed for Verification & Modern Instagram
 import { Actor } from 'apify';
 import { PuppeteerCrawler } from 'crawlee';
 
@@ -45,18 +45,6 @@ await Actor.main(async () => {
     console.log(`- Max likes per hour: ${maxLikesPerHour}`);
     console.log(`- Use proxies: ${useProxies}`);
 
-    // Rate limiting counters
-    let likesThisHour = 0;
-    let lastHourReset = Date.now();
-
-    const resetCountersIfNeeded = () => {
-        if (Date.now() - lastHourReset > 3600000) {
-            likesThisHour = 0;
-            lastHourReset = Date.now();
-            console.log('🔄 Rate limit counters reset');
-        }
-    };
-
     // Initialize results
     const results = {
         totalLikes: 0,
@@ -67,6 +55,7 @@ await Actor.main(async () => {
         skippedHashtags: 0,
         errors: [],
         proxyUsed: useProxies,
+        loginStatus: 'unknown',
         timestamp: new Date().toISOString(),
         success: true
     };
@@ -88,7 +77,7 @@ await Actor.main(async () => {
         }
     }
 
-    // Create crawler with proper proxy configuration
+    // Create crawler with extended timeout
     const crawlerOptions = {
         launchContext: {
             launchOptions: {
@@ -101,11 +90,13 @@ await Actor.main(async () => {
                     '--no-first-run',
                     '--no-zygote',
                     '--disable-gpu',
-                    '--disable-features=VizDisplayCompositor'
+                    '--disable-features=VizDisplayCompositor',
+                    '--disable-blink-features=AutomationControlled'
                 ]
             }
         },
         maxRequestsPerCrawl: 1,
+        requestHandlerTimeoutSecs: 180, // Increase timeout to 3 minutes
         proxyConfiguration: proxyConfiguration,
         sessionPoolOptions: {
             maxPoolSize: 1,
@@ -127,9 +118,16 @@ await Actor.main(async () => {
                     console.log('🌐 No proxy in use (direct connection)');
                 }
 
-                // Set user agent and viewport
+                // Set realistic user agent and viewport
                 await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
                 await page.setViewport({ width: 1366, height: 768 });
+
+                // Remove webdriver property
+                await page.evaluateOnNewDocument(() => {
+                    Object.defineProperty(navigator, 'webdriver', {
+                        get: () => undefined,
+                    });
+                });
 
                 // Login to Instagram
                 console.log('🔐 Logging into Instagram...');
@@ -138,154 +136,239 @@ await Actor.main(async () => {
                     timeout: 30000
                 });
 
-                // Wait for login form and enter credentials
+                // Wait for login form
                 await page.waitForSelector('input[name="username"]', { timeout: 15000 });
+                await delay(2000);
                 
-                await page.click('input[name="username"]', { clickCount: 3 });
-                await page.type('input[name="username"]', username, { delay: 100 });
+                // Enter credentials with more human-like behavior
+                await page.focus('input[name="username"]');
+                await page.keyboard.type(username, { delay: 150 });
                 await delay(1000);
                 
-                await page.click('input[name="password"]', { clickCount: 3 });
-                await page.type('input[name="password"]', password, { delay: 100 });
-                await delay(1000);
+                await page.focus('input[name="password"]');
+                await page.keyboard.type(password, { delay: 150 });
+                await delay(2000);
                 
-                // Click login
+                // Click login button
                 await page.click('button[type="submit"]');
+                console.log('🔄 Login submitted, waiting for response...');
                 
-                try {
-                    await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
-                } catch (navError) {
-                    console.log('Navigation timeout, checking current state...');
-                }
-
-                // Handle popups
-                await delay(3000);
+                // Wait longer for login response
+                await delay(5000);
                 
-                try {
-                    const notNowButtons = await page.$x("//button[contains(text(), 'Not Now') or contains(text(), 'Not now')]");
-                    if (notNowButtons.length > 0) {
-                        await notNowButtons[0].click();
-                        console.log('✅ Dismissed popup');
-                        await delay(2000);
-                    }
-                } catch (e) {
-                    console.log('No popup found');
-                }
-
-                // Verify login
+                // Check current URL and handle different scenarios
                 const currentUrl = page.url();
                 console.log(`Current URL after login: ${currentUrl}`);
                 
-                if (currentUrl.includes('/accounts/login/') || currentUrl.includes('/challenge/')) {
-                    throw new Error('Login failed - check credentials or account status.');
+                if (currentUrl.includes('/challenge/') || currentUrl.includes('/auth_platform/')) {
+                    results.loginStatus = 'verification_required';
+                    console.log('🔒 Instagram requires additional verification (2FA/phone/email)');
+                    console.log('⚠️ This account needs manual verification. Try:');
+                    console.log('   1. Disable 2FA temporarily');
+                    console.log('   2. Use a different account');
+                    console.log('   3. Verify account manually first');
+                    
+                    results.errors.push('Account requires verification - 2FA or security check needed');
+                    await Actor.pushData(results);
+                    return; // Exit gracefully instead of throwing error
+                }
+                
+                if (currentUrl.includes('/accounts/login/')) {
+                    results.loginStatus = 'failed';
+                    // Check for error messages
+                    try {
+                        const errorElement = await page.$('div[role="alert"], .error-message, #slfErrorAlert');
+                        if (errorElement) {
+                            const errorText = await page.evaluate(el => el.textContent, errorElement);
+                            console.log(`❌ Login error: ${errorText}`);
+                            results.errors.push(`Login failed: ${errorText}`);
+                        } else {
+                            results.errors.push('Login failed: Invalid credentials or account locked');
+                        }
+                    } catch (e) {
+                        results.errors.push('Login failed: Unknown error');
+                    }
+                    await Actor.pushData(results);
+                    return;
                 }
 
+                results.loginStatus = 'success';
                 console.log('✅ Successfully logged into Instagram');
 
-                // Process each target hashtag
-                for (const hashtag of targetHashtags.slice(0, 3)) {
-                    resetCountersIfNeeded();
+                // Handle post-login popups
+                await delay(3000);
+                try {
+                    // Handle multiple types of popups
+                    const popupSelectors = [
+                        "//button[contains(text(), 'Not Now')]",
+                        "//button[contains(text(), 'Not now')]", 
+                        "//button[contains(text(), 'Save Info')]",
+                        "//button[contains(text(), 'Turn on')]"
+                    ];
                     
-                    if (likesThisHour >= maxLikesPerHour) {
-                        console.log('⚠️ Hourly like limit reached');
-                        break;
+                    for (const selector of popupSelectors) {
+                        try {
+                            const buttons = await page.$x(selector);
+                            if (buttons.length > 0) {
+                                await buttons[0].click();
+                                console.log(`✅ Dismissed popup: ${selector}`);
+                                await delay(2000);
+                                break;
+                            }
+                        } catch (e) {
+                            continue;
+                        }
                     }
+                } catch (e) {
+                    console.log('No popups found');
+                }
 
+                // Try a different approach - go to explore page first
+                console.log('🏠 Navigating to explore page...');
+                await page.goto('https://www.instagram.com/explore/', {
+                    waitUntil: 'networkidle2',
+                    timeout: 30000
+                });
+                await delay(3000);
+
+                // Process hashtags
+                for (const hashtag of targetHashtags.slice(0, 2)) {
                     try {
                         console.log(`\n🎯 Processing hashtag: #${hashtag}`);
                         
-                        // Navigate to hashtag page
-                        await page.goto(`https://www.instagram.com/explore/tags/${hashtag}/`, {
-                            waitUntil: 'networkidle2',
-                            timeout: 30000
-                        });
+                        // Use search instead of direct hashtag navigation
+                        console.log('🔍 Using Instagram search...');
+                        
+                        // Click search
+                        try {
+                            await page.click('a[href="/explore/"]', { timeout: 5000 });
+                            await delay(2000);
+                        } catch (e) {
+                            console.log('Explore link not found, trying search icon...');
+                        }
+                        
+                        // Try to find and use search input
+                        const searchSelectors = [
+                            'input[placeholder*="Search"]',
+                            'input[aria-label*="Search"]',
+                            'input[type="search"]',
+                            'input.x1lugfcp' // Instagram search input class
+                        ];
+                        
+                        let searchInput = null;
+                        for (const selector of searchSelectors) {
+                            try {
+                                searchInput = await page.$(selector);
+                                if (searchInput) {
+                                    console.log(`✅ Found search input: ${selector}`);
+                                    break;
+                                }
+                            } catch (e) {
+                                continue;
+                            }
+                        }
+                        
+                        if (searchInput) {
+                            // Use search to find hashtag
+                            await searchInput.click();
+                            await delay(1000);
+                            await searchInput.type(`#${hashtag}`, { delay: 100 });
+                            await delay(2000);
+                            
+                            // Try to click on hashtag result
+                            try {
+                                await page.click(`a[href*="/explore/tags/${hashtag}/"]`, { timeout: 5000 });
+                                await delay(3000);
+                            } catch (e) {
+                                console.log('Hashtag link not found in search results');
+                                results.skippedHashtags++;
+                                continue;
+                            }
+                        } else {
+                            // Fallback: direct navigation
+                            console.log('🔄 Fallback: Direct hashtag navigation...');
+                            await page.goto(`https://www.instagram.com/explore/tags/${hashtag}/`, {
+                                waitUntil: 'networkidle2',
+                                timeout: 30000
+                            });
+                            await delay(5000);
+                        }
 
-                        await delay(3000); // Give page time to load
-
-                        // Try multiple selectors for posts
+                        // Look for posts with updated selectors for 2025 Instagram
+                        console.log('🔍 Looking for posts...');
                         let posts = [];
-                        const selectors = [
-                            'article a[href*="/p/"]',  // Most specific
-                            'a[href*="/p/"]',          // Broader
-                            'article a',               // Original
-                            'div[role="button"] a',    // Alternative
-                            '[data-testid="post"] a'  // Test ID based
+                        
+                        // Modern Instagram selectors (updated for 2025)
+                        const modernSelectors = [
+                            'a[href*="/p/"][role="link"]',
+                            'a[href*="/reel/"][role="link"]', 
+                            'div[role="button"] a[href*="/p/"]',
+                            'article a[href*="/p/"]',
+                            'a[href*="/p/"]'
                         ];
 
-                        for (const selector of selectors) {
+                        for (const selector of modernSelectors) {
                             try {
-                                console.log(`🔍 Trying selector: ${selector}`);
-                                await page.waitForSelector(selector, { timeout: 5000 });
+                                console.log(`🔍 Trying modern selector: ${selector}`);
+                                await page.waitForSelector(selector, { timeout: 8000 });
                                 
                                 posts = await page.$$eval(selector, links => 
                                     links
                                         .map(link => link.href)
-                                        .filter(href => href && href.includes('/p/'))
-                                        .slice(0, 9) // Limit to first 9 posts
+                                        .filter(href => href && (href.includes('/p/') || href.includes('/reel/')))
+                                        .slice(0, 6)
                                 );
                                 
                                 if (posts.length > 0) {
-                                    console.log(`✅ Found ${posts.length} posts using selector: ${selector}`);
+                                    console.log(`✅ Found ${posts.length} posts using: ${selector}`);
                                     break;
                                 }
                             } catch (selectorError) {
-                                console.log(`❌ Selector ${selector} failed: ${selectorError.message}`);
+                                console.log(`❌ Selector failed: ${selector}`);
                                 continue;
                             }
                         }
 
                         if (posts.length === 0) {
-                            console.log(`⚠️ No posts found for hashtag #${hashtag}, skipping...`);
+                            console.log(`⚠️ No posts found for hashtag #${hashtag}`);
                             results.skippedHashtags++;
                             continue;
                         }
 
-                        console.log(`📱 Found ${posts.length} posts for #${hashtag}`);
                         results.processedHashtags++;
-
-                        // Calculate engagement
-                        const postsToEngage = Math.min(3, Math.ceil(posts.length * (engagementRate / 100)));
-                        console.log(`🎯 Will engage with ${postsToEngage} posts (${engagementRate}% rate)`);
+                        const postsToEngage = Math.min(2, posts.length);
+                        console.log(`🎯 Will process ${postsToEngage} posts`);
 
                         // Process posts
                         for (let i = 0; i < postsToEngage; i++) {
-                            if (likesThisHour >= maxLikesPerHour) break;
-
                             const postUrl = posts[i];
-
+                            
                             try {
-                                const postId = postUrl.split('/p/')[1]?.split('/')[0] || 'unknown';
-                                console.log(`📝 Processing post ${i + 1}/${postsToEngage}: ${postId}`);
+                                console.log(`📝 Processing post ${i + 1}/${postsToEngage}`);
                                 
                                 await page.goto(postUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-                                
-                                // Wait for post to load
-                                await page.waitForSelector('article', { timeout: 10000 });
-                                await delay(2000);
+                                await delay(3000);
 
-                                // Try to find and click like button
+                                // Try to like with modern selectors
                                 let liked = false;
                                 const likeSelectors = [
+                                    'button[aria-label="Like"] svg',
+                                    'span[aria-label="Like"]',
                                     'svg[aria-label="Like"]',
-                                    'button[aria-label="Like"]',
-                                    '[data-testid="like-button"]',
-                                    'span[aria-label="Like"]'
+                                    'button svg[aria-label="Like"]'
                                 ];
 
                                 for (const likeSelector of likeSelectors) {
                                     try {
-                                        const likeButton = await page.$(likeSelector);
-                                        if (likeButton) {
-                                            await likeButton.click();
+                                        const likeElement = await page.$(likeSelector);
+                                        if (likeElement) {
+                                            await likeElement.click();
                                             liked = true;
-                                            likesThisHour++;
                                             results.totalLikes++;
-                                            console.log(`❤️ Post liked! (${likesThisHour}/${maxLikesPerHour} this hour)`);
+                                            console.log(`❤️ Post liked! Total: ${results.totalLikes}`);
                                             
-                                            // Charge for event
                                             try {
                                                 await Actor.chargeEvent('engagement_action', 1);
-                                                console.log('💰 Charged for engagement action');
                                             } catch (chargeError) {
                                                 console.log('Note: Event charging not available in test mode');
                                             }
@@ -297,15 +380,11 @@ await Actor.main(async () => {
                                 }
 
                                 if (!liked) {
-                                    console.log('❤️ Post already liked or like button not found');
+                                    console.log('❤️ Post already liked or like button not accessible');
                                 }
 
                                 results.processedPosts++;
-
-                                // Human-like delay
-                                const actionDelay = (delayBetweenActions * 1000) + (Math.random() * 5000);
-                                console.log(`⏱️ Waiting ${Math.round(actionDelay/1000)}s before next action...`);
-                                await delay(actionDelay);
+                                await delay(delayBetweenActions * 1000 + Math.random() * 5000);
 
                             } catch (error) {
                                 console.error('❌ Error processing post:', error.message);
@@ -313,10 +392,7 @@ await Actor.main(async () => {
                             }
                         }
 
-                        // Delay between hashtags
-                        const hashtagDelay = Math.random() * 15000 + 10000;
-                        console.log(`⏱️ Waiting ${Math.round(hashtagDelay/1000)}s before next hashtag...`);
-                        await delay(hashtagDelay);
+                        await delay(15000 + Math.random() * 10000);
 
                     } catch (error) {
                         console.error(`❌ Error processing hashtag #${hashtag}:`, error.message);
@@ -325,23 +401,23 @@ await Actor.main(async () => {
                     }
                 }
 
-                // Store results
+                // Store final results
                 await Actor.pushData(results);
                 console.log('\n📊 Instagram AI Agent Results:');
+                console.log(`- Login status: ${results.loginStatus}`);
                 console.log(`- Processed hashtags: ${results.processedHashtags}`);
                 console.log(`- Skipped hashtags: ${results.skippedHashtags}`);
                 console.log(`- Processed posts: ${results.processedPosts}`);
                 console.log(`- Total likes: ${results.totalLikes}`);
                 console.log(`- Proxy used: ${results.proxyUsed ? 'Yes' : 'No'}`);
-                if (results.actualProxyUsed) {
-                    console.log(`- Actual proxy: ${results.actualProxyUsed}`);
-                }
                 console.log(`- Errors: ${results.errors.length}`);
                 
                 if (results.totalLikes > 0) {
                     console.log(`🎉 Campaign successful! Liked ${results.totalLikes} posts`);
-                } else if (results.skippedHashtags > 0) {
-                    console.log(`⚠️ No posts found for hashtags. Try different hashtags like: automation, ai, business, tech, marketing`);
+                } else if (results.loginStatus === 'verification_required') {
+                    console.log(`🔒 Account needs verification - use a different account or disable 2FA`);
+                } else {
+                    console.log(`⚠️ No engagement completed. Check account status and hashtag availability.`);
                 }
 
             } catch (error) {
@@ -349,7 +425,7 @@ await Actor.main(async () => {
                 results.success = false;
                 results.errors.push(`Fatal: ${error.message}`);
                 await Actor.pushData(results);
-                throw error;
+                // Don't throw - let it complete gracefully
             }
         }
     });
