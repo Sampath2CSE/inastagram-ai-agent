@@ -1,8 +1,8 @@
-// Instagram AI Agent - Fixed with Proper Proxy Support
+// Instagram AI Agent - Robust Version with Better Error Handling
 import { Actor } from 'apify';
 import { PuppeteerCrawler } from 'crawlee';
 
-// Helper function for delays (compatible with all Puppeteer versions)
+// Helper function for delays
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 await Actor.main(async () => {
@@ -49,9 +49,8 @@ await Actor.main(async () => {
     let likesThisHour = 0;
     let lastHourReset = Date.now();
 
-    // Reset counters every hour
     const resetCountersIfNeeded = () => {
-        if (Date.now() - lastHourReset > 3600000) { // 1 hour
+        if (Date.now() - lastHourReset > 3600000) {
             likesThisHour = 0;
             lastHourReset = Date.now();
             console.log('🔄 Rate limit counters reset');
@@ -65,6 +64,7 @@ await Actor.main(async () => {
         totalFollows: 0,
         processedPosts: 0,
         processedHashtags: 0,
+        skippedHashtags: 0,
         errors: [],
         proxyUsed: useProxies,
         timestamp: new Date().toISOString(),
@@ -80,11 +80,6 @@ await Actor.main(async () => {
                 countryCode: 'US'
             });
             console.log('🌐 Proxy configuration created successfully');
-            
-            // Test proxy
-            const proxyInfo = await proxyConfiguration.newProxyInfo();
-            console.log(`🌐 Using proxy: ${proxyInfo.hostname}:${proxyInfo.port}`);
-            results.proxyInfo = `${proxyInfo.hostname}:${proxyInfo.port}`;
         } catch (error) {
             console.log('⚠️ Proxy setup failed:', error.message);
             console.log('⚠️ Continuing without proxies');
@@ -111,10 +106,7 @@ await Actor.main(async () => {
             }
         },
         maxRequestsPerCrawl: 1,
-        // Add proxy configuration to crawler
         proxyConfiguration: proxyConfiguration,
-        
-        // Configure session pool for proxy rotation
         sessionPoolOptions: {
             maxPoolSize: 1,
             sessionOptions: {
@@ -127,7 +119,7 @@ await Actor.main(async () => {
         ...crawlerOptions,
         async requestHandler({ page, proxyInfo }) {
             try {
-                // Log proxy information if available
+                // Log proxy information
                 if (proxyInfo) {
                     console.log(`🌐 Using proxy: ${proxyInfo.hostname}:${proxyInfo.port} (${proxyInfo.countryCode || 'Unknown'})`);
                     results.actualProxyUsed = `${proxyInfo.hostname}:${proxyInfo.port}`;
@@ -135,10 +127,8 @@ await Actor.main(async () => {
                     console.log('🌐 No proxy in use (direct connection)');
                 }
 
-                // Set user agent to look more natural
+                // Set user agent and viewport
                 await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36');
-
-                // Set viewport
                 await page.setViewport({ width: 1366, height: 768 });
 
                 // Login to Instagram
@@ -151,12 +141,10 @@ await Actor.main(async () => {
                 // Wait for login form and enter credentials
                 await page.waitForSelector('input[name="username"]', { timeout: 15000 });
                 
-                // Clear any existing text and type username
                 await page.click('input[name="username"]', { clickCount: 3 });
                 await page.type('input[name="username"]', username, { delay: 100 });
                 await delay(1000);
                 
-                // Clear any existing text and type password
                 await page.click('input[name="password"]', { clickCount: 3 });
                 await page.type('input[name="password"]', password, { delay: 100 });
                 await delay(1000);
@@ -164,58 +152,38 @@ await Actor.main(async () => {
                 // Click login
                 await page.click('button[type="submit"]');
                 
-                // Wait for navigation or error
                 try {
                     await page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 });
                 } catch (navError) {
                     console.log('Navigation timeout, checking current state...');
                 }
 
-                // Handle potential popups and verification steps
+                // Handle popups
                 await delay(3000);
                 
-                // Check for "Save Your Login Info" popup
                 try {
                     const notNowButtons = await page.$x("//button[contains(text(), 'Not Now') or contains(text(), 'Not now')]");
                     if (notNowButtons.length > 0) {
                         await notNowButtons[0].click();
-                        console.log('✅ Dismissed "Save Login Info" popup');
+                        console.log('✅ Dismissed popup');
                         await delay(2000);
                     }
                 } catch (e) {
-                    console.log('No "Save Login Info" popup found');
+                    console.log('No popup found');
                 }
 
-                // Check for notifications popup
-                try {
-                    const notNowButtons = await page.$x("//button[contains(text(), 'Not Now')]");
-                    if (notNowButtons.length > 0) {
-                        await notNowButtons[0].click();
-                        console.log('✅ Dismissed notifications popup');
-                        await delay(2000);
-                    }
-                } catch (e) {
-                    console.log('No notifications popup found');
-                }
-
-                // Verify login was successful
+                // Verify login
                 const currentUrl = page.url();
                 console.log(`Current URL after login: ${currentUrl}`);
                 
                 if (currentUrl.includes('/accounts/login/') || currentUrl.includes('/challenge/')) {
-                    // Check for specific error messages
-                    const errorElements = await page.$$('div[role="alert"], .error-message, #slfErrorAlert');
-                    if (errorElements.length > 0) {
-                        const errorText = await page.evaluate(el => el.textContent, errorElements[0]);
-                        throw new Error(`Login failed: ${errorText}`);
-                    }
-                    throw new Error('Login failed - still on login page. Check credentials or account status.');
+                    throw new Error('Login failed - check credentials or account status.');
                 }
 
                 console.log('✅ Successfully logged into Instagram');
 
                 // Process each target hashtag
-                for (const hashtag of targetHashtags.slice(0, 2)) { // Limit hashtags for safety
+                for (const hashtag of targetHashtags.slice(0, 3)) {
                     resetCountersIfNeeded();
                     
                     if (likesThisHour >= maxLikesPerHour) {
@@ -232,18 +200,50 @@ await Actor.main(async () => {
                             timeout: 30000
                         });
 
-                        // Wait for posts to load
-                        await page.waitForSelector('article a', { timeout: 15000 });
-                        
-                        // Get recent posts
-                        const posts = await page.$$eval('article a', links => 
-                            links.slice(0, 6).map(link => link.href).filter(href => href.includes('/p/'))
-                        );
+                        await delay(3000); // Give page time to load
+
+                        // Try multiple selectors for posts
+                        let posts = [];
+                        const selectors = [
+                            'article a[href*="/p/"]',  // Most specific
+                            'a[href*="/p/"]',          // Broader
+                            'article a',               // Original
+                            'div[role="button"] a',    // Alternative
+                            '[data-testid="post"] a'  // Test ID based
+                        ];
+
+                        for (const selector of selectors) {
+                            try {
+                                console.log(`🔍 Trying selector: ${selector}`);
+                                await page.waitForSelector(selector, { timeout: 5000 });
+                                
+                                posts = await page.$$eval(selector, links => 
+                                    links
+                                        .map(link => link.href)
+                                        .filter(href => href && href.includes('/p/'))
+                                        .slice(0, 9) // Limit to first 9 posts
+                                );
+                                
+                                if (posts.length > 0) {
+                                    console.log(`✅ Found ${posts.length} posts using selector: ${selector}`);
+                                    break;
+                                }
+                            } catch (selectorError) {
+                                console.log(`❌ Selector ${selector} failed: ${selectorError.message}`);
+                                continue;
+                            }
+                        }
+
+                        if (posts.length === 0) {
+                            console.log(`⚠️ No posts found for hashtag #${hashtag}, skipping...`);
+                            results.skippedHashtags++;
+                            continue;
+                        }
 
                         console.log(`📱 Found ${posts.length} posts for #${hashtag}`);
                         results.processedHashtags++;
 
-                        // Calculate how many posts to engage with
+                        // Calculate engagement
                         const postsToEngage = Math.min(3, Math.ceil(posts.length * (engagementRate / 100)));
                         console.log(`🎯 Will engage with ${postsToEngage} posts (${engagementRate}% rate)`);
 
@@ -254,36 +254,55 @@ await Actor.main(async () => {
                             const postUrl = posts[i];
 
                             try {
-                                console.log(`📝 Processing post ${i + 1}/${postsToEngage}: ${postUrl.split('/p/')[1]?.split('/')[0] || 'unknown'}`);
+                                const postId = postUrl.split('/p/')[1]?.split('/')[0] || 'unknown';
+                                console.log(`📝 Processing post ${i + 1}/${postsToEngage}: ${postId}`);
                                 
                                 await page.goto(postUrl, { waitUntil: 'networkidle2', timeout: 30000 });
+                                
+                                // Wait for post to load
                                 await page.waitForSelector('article', { timeout: 10000 });
-
-                                // Wait a moment for everything to load
                                 await delay(2000);
 
-                                // Try to like the post
-                                const likeButton = await page.$('svg[aria-label="Like"]');
-                                if (likeButton) {
-                                    await likeButton.click();
-                                    likesThisHour++;
-                                    results.totalLikes++;
-                                    console.log(`❤️ Post liked! (${likesThisHour}/${maxLikesPerHour} this hour)`);
-                                    
-                                    // Charge for event (monetization)
+                                // Try to find and click like button
+                                let liked = false;
+                                const likeSelectors = [
+                                    'svg[aria-label="Like"]',
+                                    'button[aria-label="Like"]',
+                                    '[data-testid="like-button"]',
+                                    'span[aria-label="Like"]'
+                                ];
+
+                                for (const likeSelector of likeSelectors) {
                                     try {
-                                        await Actor.chargeEvent('engagement_action', 1);
-                                        console.log('💰 Charged for engagement action');
-                                    } catch (chargeError) {
-                                        console.log('Note: Event charging not available in test mode');
+                                        const likeButton = await page.$(likeSelector);
+                                        if (likeButton) {
+                                            await likeButton.click();
+                                            liked = true;
+                                            likesThisHour++;
+                                            results.totalLikes++;
+                                            console.log(`❤️ Post liked! (${likesThisHour}/${maxLikesPerHour} this hour)`);
+                                            
+                                            // Charge for event
+                                            try {
+                                                await Actor.chargeEvent('engagement_action', 1);
+                                                console.log('💰 Charged for engagement action');
+                                            } catch (chargeError) {
+                                                console.log('Note: Event charging not available in test mode');
+                                            }
+                                            break;
+                                        }
+                                    } catch (e) {
+                                        continue;
                                     }
-                                } else {
+                                }
+
+                                if (!liked) {
                                     console.log('❤️ Post already liked or like button not found');
                                 }
 
                                 results.processedPosts++;
 
-                                // Human-like delay between actions
+                                // Human-like delay
                                 const actionDelay = (delayBetweenActions * 1000) + (Math.random() * 5000);
                                 console.log(`⏱️ Waiting ${Math.round(actionDelay/1000)}s before next action...`);
                                 await delay(actionDelay);
@@ -302,6 +321,7 @@ await Actor.main(async () => {
                     } catch (error) {
                         console.error(`❌ Error processing hashtag #${hashtag}:`, error.message);
                         results.errors.push(`Hashtag ${hashtag}: ${error.message}`);
+                        results.skippedHashtags++;
                     }
                 }
 
@@ -309,6 +329,7 @@ await Actor.main(async () => {
                 await Actor.pushData(results);
                 console.log('\n📊 Instagram AI Agent Results:');
                 console.log(`- Processed hashtags: ${results.processedHashtags}`);
+                console.log(`- Skipped hashtags: ${results.skippedHashtags}`);
                 console.log(`- Processed posts: ${results.processedPosts}`);
                 console.log(`- Total likes: ${results.totalLikes}`);
                 console.log(`- Proxy used: ${results.proxyUsed ? 'Yes' : 'No'}`);
@@ -316,8 +337,11 @@ await Actor.main(async () => {
                     console.log(`- Actual proxy: ${results.actualProxyUsed}`);
                 }
                 console.log(`- Errors: ${results.errors.length}`);
-                if (results.errors.length > 0) {
-                    console.log('❌ Errors:', results.errors);
+                
+                if (results.totalLikes > 0) {
+                    console.log(`🎉 Campaign successful! Liked ${results.totalLikes} posts`);
+                } else if (results.skippedHashtags > 0) {
+                    console.log(`⚠️ No posts found for hashtags. Try different hashtags like: automation, ai, business, tech, marketing`);
                 }
 
             } catch (error) {
